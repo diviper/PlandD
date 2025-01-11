@@ -1,7 +1,7 @@
 """Base message handlers"""
 import logging
 import traceback
-from aiogram import Router
+from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.types import Message
 
@@ -112,6 +112,7 @@ def register_base_handlers(router: Router):
         logger.info("✓ Зарегистрирован обработчик команды /help")
 
         logger.info("=== Регистрация базовых обработчиков завершена ===")
+
     except Exception as e:
         logger.error(f"❌ Ошибка при регистрации обработчиков: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")

@@ -32,7 +32,10 @@ async def error_handler(event: ErrorEvent, data: dict) -> bool:
     try:
         message = data.get("event_update", {}).get("message")
         if message and isinstance(message, Message):
-            await message.answer("Произошла ошибка при обработке сообщения")
+            await message.answer(
+                "🚫 Произошла ошибка при обработке сообщения.\n"
+                "Пожалуйста, попробуйте позже."
+            )
     except Exception as e:
         logger.error(f"Ошибка при отправке сообщения об ошибке: {str(e)}")
     return True
@@ -59,10 +62,15 @@ async def run_bot():
             dp = Dispatcher(storage=storage)
             db = Database()
 
-            router = Router(name="main_router")
+            # Создаем основной роутер
+            main_router = Router(name="main_router")
+            dp.include_router(main_router)
+
+            # Регистрируем обработчики
             logger.info("Регистрация обработчиков...")
-            register_handlers(router, db)
-            dp.include_router(router)
+            register_handlers(main_router, db)
+
+            # Регистрируем глобальный обработчик ошибок
             dp.errors.register(error_handler)
 
             logger.info("Запуск бота в режиме long polling...")

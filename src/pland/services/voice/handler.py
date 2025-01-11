@@ -15,22 +15,23 @@ logger = logging.getLogger(__name__)
 class VoiceHandler:
     """Обработчик голосовых сообщений"""
 
-    def __init__(self, bot: Bot):
+    def __init__(self, bot: Bot, test_mode: bool = False):
         """
         Инициализация обработчика голосовых сообщений
-        
+
         :param bot: Экземпляр бота для загрузки файлов
+        :param test_mode: Режим тестирования
         """
         self.bot = bot
         self.temp_dir = Path(Config.BASE_DIR) / "temp" / "voice"
         self.temp_dir.mkdir(parents=True, exist_ok=True)
-        self.transcriber = AudioTranscriber()
-        logger.info("Voice handler initialized")
+        self.transcriber = AudioTranscriber(test_mode=test_mode)
+        logger.info(f"Voice handler initialized (test_mode: {test_mode})")
 
     async def process_voice_message(self, message: Message) -> Optional[str]:
         """
         Обработка голосового сообщения
-        
+
         :param message: Сообщение с голосовым файлом
         :return: Текст, полученный из голосового сообщения
         """
@@ -47,24 +48,24 @@ class VoiceHandler:
             # Загружаем файл
             file = await self.bot.get_file(file_id)
             file_path = file.file_path
-            
+
             # Создаём временный файл для сохранения
             temp_file = self.temp_dir / f"{file_id}.ogg"
-            
+
             # Скачиваем файл
             await self.bot.download_file(file_path, temp_file)
             logger.info(f"Голосовое сообщение сохранено: {temp_file}")
 
             # Преобразуем в текст
             text = await self.transcriber.transcribe_audio(temp_file)
-            
+
             # Удаляем временный файл
             os.unlink(temp_file)
-            
+
             if text:
                 logger.info(f"Голосовое сообщение успешно преобразовано в текст: {text[:100]}...")
                 return text
-            
+
             logger.warning("Не удалось преобразовать голосовое сообщение в текст")
             return None
 
