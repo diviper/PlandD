@@ -1,0 +1,51 @@
+
+# Python essentials
+__pycache__/
+*.py[cod]
+*.so
+build/
+dist/
+*.egg-info/
+
+# Environment and secrets
+venv/
+.env
+.env.*
+!.env.example
+*.ssh
+*ssh_key*
+*.pem
+*.key
+*.pub
+.ssh/
+
+# Project specific
+*.db
+*.sqlite3
+/src/pland/database/data/*.db
+!/src/pland/database/data/.gitkeep
+
+# Logs and cache
+*.log
+logs/
+.pytest_cache/
+.coverage
+tasks_handler.log
+
+# IDE and system
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Replit specific
+.replit
+replit.nix
+.config/
+
+# Temporary and generated files
+temp/
+/temp/
+attached_assets/
+generated-icon.png
+PROJECT_STRUCTURE.md

@@ -1,0 +1,64 @@
+[project]
+name = "pland"
+version = "0.1.0"
+description = "AI-powered Telegram bot for emergency daily planning"
+requires-python = ">=3.11"
+dependencies = [
+    "aiogram>=3.3.0",
+    "apscheduler>=3.10.0",
+    "async-timeout>=5.0.1",
+    "black>=24.10.0",
+    "isort>=5.13.2",
+    "openai>=1.0.0",
+    "pytest-asyncio>=0.21.1",
+    "pytest>=7.4.0",
+    "python-dotenv>=1.0.0",
+    "ruff>=0.9.0",
+    "tenacity>=8.2.3",
+    "trafilatura>=2.0.0",
+    "flask-wtf>=1.2.2",
+    "flask-login>=0.6.3",
+    "oauthlib>=3.2.2",
+    "aiofiles>=24.1.0",
+    "aiohttp>=3.11.11",
+    "ffmpeg-python>=0.2.0",
+    "twilio>=9.4.2",
+    "pydub>=0.25.1",
+    "speechrecognition>=3.13.0",
+    "soundfile>=0.13.0",
+    "python-telegram-bot>=21.10",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "ruff>=0.1.9",
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.1",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+line-length = 100
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "C",   # flake8-comprehensions
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
