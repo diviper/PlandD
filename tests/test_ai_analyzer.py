@@ -26,47 +26,35 @@ async def test_analyze_task(task_analyzer):
         MagicMock(
             message=MagicMock(
                 content='''{
-                    "title": "Подготовить презентацию",
-                    "priority": "high",
-                    "due_date": "2025-01-11 15:00",
-                    "estimated_duration": 60,
-                    "suggested_time_of_day": "утро",
-                    "energy_level": 8,
-                    "priority_reason": "Важная встреча завтра",
-                    "tasks": [
-                        {
-                            "title": "Собрать материалы",
-                            "description": "Подготовить все необходимые данные",
-                            "priority": "high",
-                            "estimated_duration": 30,
-                            "energy_level": 7,
-                            "energy_type": "mental",
-                            "optimal_time": "morning"
-                        },
-                        {
-                            "title": "Создать слайды",
-                            "description": "Оформить презентацию",
-                            "priority": "high",
-                            "estimated_duration": 60,
-                            "energy_level": 8,
-                            "energy_type": "mental",
-                            "optimal_time": "morning"
-                        },
-                        {
-                            "title": "Подготовить речь",
-                            "description": "Написать и отрепетировать выступление",
-                            "priority": "high",
-                            "estimated_duration": 45,
-                            "energy_level": 9,
-                            "energy_type": "mental",
-                            "optimal_time": "afternoon"
-                        }
-                    ],
-                    "suggested_order": [0, 1, 2],
-                    "energy_distribution": {
-                        "morning": [0, 1],
-                        "afternoon": [2],
-                        "evening": []
+                    "priority": {
+                        "level": "high",
+                        "reason": "Важная встреча завтра",
+                        "urgency": "срочно",
+                        "importance": "важно"
+                    },
+                    "schedule": {
+                        "optimal_time": "morning",
+                        "estimated_duration": 60,
+                        "deadline": "2025-01-11 15:00",
+                        "buffer_time": 30,
+                        "subtasks": [
+                            {
+                                "title": "Собрать материалы",
+                                "description": "Подготовить все необходимые данные",
+                                "duration": 30,
+                                "order": 1,
+                                "dependencies": []
+                            }
+                        ]
+                    },
+                    "resources": {
+                        "energy_required": 8,
+                        "focus_level": "high",
+                        "materials": ["презентация"],
+                        "prerequisites": [],
+                        "dependencies": [],
+                        "risks": [],
+                        "optimization_tips": []
                     }
                 }'''
             )
@@ -78,26 +66,15 @@ async def test_analyze_task(task_analyzer):
 
         # Basic structure checks
         assert isinstance(result, dict)
-        assert "title" in result
         assert "priority" in result
-        assert "due_date" in result
-        assert "tasks" in result
-        assert isinstance(result["tasks"], list)
+        assert "schedule" in result
+        assert "resources" in result
 
         # Content checks
-        assert result["title"] == "Подготовить презентацию"
-        assert result["priority"] == Config.PRIORITY_HIGH
-        assert isinstance(result["due_date"], datetime)
-        assert len(result["tasks"]) == 3
-
-        # Task structure checks
-        first_task = result["tasks"][0]
-        assert "title" in first_task
-        assert "description" in first_task
-        assert "estimated_duration" in first_task
-        assert isinstance(first_task["estimated_duration"], int)
-        assert "energy_level" in first_task
-        assert isinstance(first_task["energy_level"], int)
+        assert result["priority"]["level"] == "high"
+        assert result["schedule"]["estimated_duration"] == 60
+        assert isinstance(result["schedule"]["deadline"], str)
+        assert len(result["schedule"]["subtasks"]) == 1
 
 @pytest.mark.asyncio
 async def test_analyze_task_caching(task_analyzer):
@@ -108,24 +85,28 @@ async def test_analyze_task_caching(task_analyzer):
         MagicMock(
             message=MagicMock(
                 content='''{
-                    "title": "Тестовая задача",
-                    "priority": "medium",
-                    "due_date": "2025-01-11 12:00",
-                    "estimated_duration": 30,
-                    "suggested_time_of_day": "утро",
-                    "energy_level": 5,
-                    "priority_reason": "Тест",
-                    "tasks": [
-                        {
-                            "title": "Подзадача 1",
-                            "description": "Описание 1",
-                            "priority": "medium",
-                            "estimated_duration": 15,
-                            "energy_level": 4,
-                            "energy_type": "mental",
-                            "optimal_time": "morning"
-                        }
-                    ]
+                    "priority": {
+                        "level": "medium",
+                        "reason": "Тест",
+                        "urgency": "не срочно",
+                        "importance": "важно"
+                    },
+                    "schedule": {
+                        "optimal_time": "morning",
+                        "estimated_duration": 30,
+                        "deadline": "2025-01-11 12:00",
+                        "buffer_time": 15,
+                        "subtasks": []
+                    },
+                    "resources": {
+                        "energy_required": 5,
+                        "focus_level": "medium",
+                        "materials": [],
+                        "prerequisites": [],
+                        "dependencies": [],
+                        "risks": [],
+                        "optimization_tips": []
+                    }
                 }'''
             )
         )
@@ -146,52 +127,23 @@ async def test_api_error_handling(task_analyzer):
     """Test error handling for API calls"""
     from openai import APIError
 
-    # Создаем mock объект для request
+    # Create mock request
     mock_request = MagicMock()
     mock_request.method = "POST"
     mock_request.url = "https://api.openai.com/v1/chat/completions"
     mock_request.headers = {"Authorization": "Bearer ..."}
     mock_request.body = "..."
 
-    # Создаем APIError с mock объектом request и body
+    # Create APIError with mock request
     mock_error = APIError(
-        message="API Error",
+        message="API Rate Limit Exceeded",
         request=mock_request,
-        body={"error": {"message": "API Error", "type": "invalid_request_error"}}
+        body={"error": {"message": "Rate limit exceeded", "type": "rate_limit_error"}}
     )
 
     with patch.object(task_analyzer.client.chat.completions, 'create', AsyncMock(side_effect=mock_error)):
-        with pytest.raises(Exception) as exc_info:
-            await task_analyzer.analyze_task("Test task")
-        assert "API" in str(exc_info.value)
-
-@pytest.mark.asyncio
-async def test_due_date_parsing(task_analyzer):
-    """Test parsing of different date formats"""
-    # Test valid format
-    valid_date = "2025-01-11 15:00"
-    parsed_date = task_analyzer._parse_due_date(valid_date)
-    assert isinstance(parsed_date, datetime)
-    assert parsed_date.year == 2025
-    assert parsed_date.month == 1
-    assert parsed_date.day == 11
-    assert parsed_date.hour == 15
-    assert parsed_date.minute == 0
-
-    # Test invalid format
-    invalid_date = "2025/01/11"
-    default_date = task_analyzer._parse_due_date(invalid_date)
-    assert isinstance(default_date, datetime)
-    time_diff = default_date - datetime.now()
-    assert 0 < time_diff.total_seconds() < 86400 * 2  # Should be less than 2 days
-
-@pytest.mark.asyncio
-async def test_priority_mapping(task_analyzer):
-    """Test priority mapping functionality"""
-    assert task_analyzer._map_priority("high") == Config.PRIORITY_HIGH
-    assert task_analyzer._map_priority("medium") == Config.PRIORITY_MEDIUM
-    assert task_analyzer._map_priority("low") == Config.PRIORITY_LOW
-    assert task_analyzer._map_priority("invalid") == Config.PRIORITY_MEDIUM
+        result = await task_analyzer.analyze_task("Test task")
+        assert result is None
 
 @pytest.mark.asyncio
 async def test_cache_clearing(task_analyzer):
@@ -202,14 +154,28 @@ async def test_cache_clearing(task_analyzer):
         MagicMock(
             message=MagicMock(
                 content='''{
-                    "title": "Тест",
-                    "priority": "medium",
-                    "due_date": "2025-01-11 12:00",
-                    "estimated_duration": 30,
-                    "suggested_time_of_day": "утро",
-                    "energy_level": 5,
-                    "priority_reason": "Тест",
-                    "tasks": []
+                    "priority": {
+                        "level": "medium",
+                        "reason": "Тест",
+                        "urgency": "не срочно",
+                        "importance": "средне"
+                    },
+                    "schedule": {
+                        "optimal_time": "morning",
+                        "estimated_duration": 30,
+                        "deadline": "2025-01-11 12:00",
+                        "buffer_time": 15,
+                        "subtasks": []
+                    },
+                    "resources": {
+                        "energy_required": 5,
+                        "focus_level": "medium",
+                        "materials": [],
+                        "prerequisites": [],
+                        "dependencies": [],
+                        "risks": [],
+                        "optimization_tips": []
+                    }
                 }'''
             )
         )

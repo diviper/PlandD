@@ -3,6 +3,7 @@ import logging
 import sqlite3
 import pytest
 from pland.core.config import Config, setup_logging
+from pland.database.database import Database
 
 # Setup logging for tests with DEBUG level
 setup_logging(level=logging.DEBUG)
@@ -21,7 +22,8 @@ def test_conn():
 def test_db(test_conn):
     """Create test database"""
     logger.info("Initializing test database")
-    db = Database(db_path=":memory:", test_conn=test_conn)
+    db = Database()
+    db.get_session().close()  # Close initial session
     return db
 
 @pytest.fixture

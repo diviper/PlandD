@@ -2,6 +2,7 @@
 import pytest
 from datetime import datetime, timedelta
 
+from pland.database.database import Database
 from pland.database.models import Task, Schedule, Meal
 from pland.core.config import Config
 
