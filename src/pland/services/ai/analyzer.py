@@ -2,7 +2,7 @@
 import json
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional
 import asyncio
 
 from openai import AsyncOpenAI, APIError, RateLimitError
@@ -17,63 +17,80 @@ from pland.core.config import Config
 
 logger = logging.getLogger(__name__)
 
+class TaskAnalyzerError(Exception):
+    """Base exception for task analyzer errors"""
+    pass
+
 class TaskAnalyzer:
     """Анализатор задач с использованием OpenAI API"""
 
     def __init__(self):
         """Initialize TaskAnalyzer with OpenAI client"""
         if not Config.OPENAI_API_KEY:
-            logger.error("OpenAI API key not found in environment variables")
-            raise ValueError("OpenAI API key is required")
+            logger.error("OpenAI API key не найден в переменных окружения")
+            raise ValueError("OpenAI API key обязателен")
 
-        logger.info("Initializing TaskAnalyzer...")
-        logger.debug(f"Using OpenAI API key ending in: ...{Config.OPENAI_API_KEY[-4:]}")
+        logger.info("Инициализация TaskAnalyzer...")
+        logger.debug(f"Используется OpenAI API ключ оканчивающийся на: ...{Config.OPENAI_API_KEY[-4:]}")
 
         try:
             self.client = AsyncOpenAI(api_key=Config.OPENAI_API_KEY)
             self._cache = {}
             self._last_request_time = datetime.min
-            self._request_semaphore = asyncio.Semaphore(3)
-            logger.info("TaskAnalyzer initialization completed successfully")
+            logger.info("TaskAnalyzer успешно инициализирован")
         except Exception as e:
-            logger.error(f"Error initializing TaskAnalyzer: {str(e)}", exc_info=True)
+            logger.error(f"Ошибка инициализации TaskAnalyzer: {str(e)}", exc_info=True)
             raise
 
-    async def test_api_connection(self):
-        """Test OpenAI API connection"""
-        try:
-            logger.info("Testing OpenAI API connection...")
-            logger.debug("Sending test request to OpenAI API")
-
-            response = await self.client.chat.completions.create(
-                model="gpt-4",
-                messages=[{"role": "user", "content": "Test connection"}],
-                max_tokens=10
-            )
-
-            logger.debug(f"Received response from API test: {response}")
-
-            if response and response.choices:
-                logger.info("✓ OpenAI API connection test successful")
-                return True
-
-            logger.error("OpenAI API connection test failed: Empty response")
-            return False
-
-        except Exception as e:
-            logger.error(f"OpenAI API connection test failed: {str(e)}", exc_info=True)
-            return False
-
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10),
+        retry=retry_if_exception_type((APIError, RateLimitError))
+    )
     async def analyze_task(self, text: str) -> Optional[Dict[str, Any]]:
         """
-        Analyze task text and return structured result
+        Analyze task text and return structured result with priority, schedule and resources.
+
+        Args:
+            text: Task description text
+
+        Returns:
+            Dictionary containing analyzed task details or None if analysis fails
+
+        Example response:
+        {
+            "priority": {
+                "level": "high/medium/low",
+                "reason": "Explanation of priority",
+                "urgency": "urgent/not urgent"
+            },
+            "schedule": {
+                "optimal_time": "morning/afternoon/evening",
+                "estimated_duration": "minutes",
+                "deadline": "YYYY-MM-DD HH:MM",
+                "subtasks": [
+                    {
+                        "title": "Subtask name",
+                        "duration": "minutes",
+                        "order": "sequence number"
+                    }
+                ]
+            },
+            "resources": {
+                "energy_required": 1-10,
+                "focus_level": "high/medium/low",
+                "materials": ["resource1", "resource2"],
+                "prerequisites": ["prerequisite tasks"],
+                "dependencies": ["dependent tasks"]
+            }
+        }
         """
         try:
-            logger.info(f"Starting task analysis for text: {text[:100]}...")
+            logger.info(f"Начало анализа задачи: {text[:100]}...")
 
             # Check cache
             if text in self._cache:
-                logger.info("Found cached result")
+                logger.info("Найден результат в кэше")
                 return self._cache[text]
 
             # Apply rate limiting
@@ -81,138 +98,123 @@ class TaskAnalyzer:
             time_since_last_request = (now - self._last_request_time).total_seconds()
             if time_since_last_request < 1.0:
                 delay = 1.0 - time_since_last_request
-                logger.debug(f"Applying rate limit delay: {delay} seconds")
+                logger.debug(f"Применяется задержка: {delay} секунд")
                 await asyncio.sleep(delay)
 
-            async with self._request_semaphore:
-                logger.info("Preparing OpenAI API request")
-
-                system_prompt = {
+            messages = [
+                {
                     "role": "system",
-                    "content": """Ты опытный планировщик задач. Проанализируй задачу и создай структурированный план.
-Учитывай следующие аспекты:
-1. Приоритет (high/medium/low)
-2. Сроки выполнения
-3. Декомпозиция на подзадачи
-4. Энергозатратность (1-10)
-5. Оптимальное время выполнения
+                    "content": """Ты опытный планировщик задач с глубоким пониманием тайм-менеджмента. 
+                    Проанализируй задачу и создай оптимальный план ее выполнения.
 
-Верни результат строго в формате JSON:
-{
-  "title": "краткое название",
-  "priority": "high/medium/low",
-  "due_date": "YYYY-MM-DD HH:mm",
-  "estimated_total_time": 30,
-  "energy_level": 5,
-  "tasks": [
-    {
-      "title": "название подзадачи",
-      "description": "описание",
-      "priority": "high/medium/low",
-      "estimated_duration": 30,
-      "energy_level": 5
-    }
-  ]
-}"""
-                }
+                    При анализе учитывай:
+                    1. Срочность и важность задачи (матрица Эйзенхауэра)
+                    2. Оптимальное время выполнения с учетом биоритмов
+                    3. Декомпозицию на подзадачи
+                    4. Энергозатраты и необходимый уровень концентрации
+                    5. Зависимости и предварительные условия
+                    6. Потенциальные риски и препятствия
+                    7. Оптимальную последовательность действий
 
-                user_prompt = {
+                    Формат ответа JSON:
+                    {
+                      "priority": {
+                        "level": "high/medium/low",
+                        "reason": "развернутое объяснение приоритета",
+                        "urgency": "срочно/не срочно",
+                        "importance": "важно/не важно"
+                      },
+                      "schedule": {
+                        "optimal_time": "morning/afternoon/evening",
+                        "estimated_duration": "время в минутах",
+                        "deadline": "YYYY-MM-DD HH:MM",
+                        "buffer_time": "время в минутах на непредвиденные обстоятельства",
+                        "subtasks": [
+                          {
+                            "title": "название подзадачи",
+                            "description": "детальное описание",
+                            "duration": "время в минутах",
+                            "order": "порядковый номер",
+                            "dependencies": ["id предшествующих подзадач"]
+                          }
+                        ]
+                      },
+                      "resources": {
+                        "energy_required": число от 1 до 10,
+                        "focus_level": "high/medium/low",
+                        "materials": ["необходимые ресурсы"],
+                        "prerequisites": ["что нужно подготовить"],
+                        "dependencies": ["на что влияет выполнение"],
+                        "risks": ["возможные препятствия"],
+                        "optimization_tips": ["рекомендации по оптимизации"]
+                      }
+                    }"""
+                },
+                {
                     "role": "user",
-                    "content": f"Проанализируй задачу: {text}\n\nТекущее время: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+                    "content": f"Проанализируй задачу: {text}"
                 }
+            ]
 
-                logger.info("Sending request to OpenAI API")
-                try:
-                    logger.debug(f"System prompt: {system_prompt}")
-                    logger.debug(f"User prompt: {user_prompt}")
+            try:
+                logger.info("Отправка запроса к OpenAI API")
+                response = await self.client.chat.completions.create(
+                    model="gpt-3.5-turbo",  # Using GPT-3.5 for cost efficiency
+                    messages=messages,
+                    temperature=0.7,  # Balanced between creativity and consistency
+                    max_tokens=1000,
+                    response_format={"type": "json_object"}
+                )
 
-                    response = await self.client.chat.completions.create(
-                        model="gpt-4",
-                        messages=[system_prompt, user_prompt],
-                        response_format={"type": "json_object"},
-                        temperature=Config.TASK_ANALYSIS_SETTINGS["ai_temperature"]
-                    )
+                self._last_request_time = datetime.now()
+                logger.info("Получен ответ от OpenAI API")
+                logger.debug(f"Ответ API: {response.choices[0].message.content}")
 
-                    self._last_request_time = datetime.now()
-                    logger.info("Received response from OpenAI API")
-                    logger.debug(f"Raw API response: {response.choices[0].message.content}")
+                result = json.loads(response.choices[0].message.content)
 
-                except APIError as api_error:
-                    logger.error(f"OpenAI API Error: {str(api_error)}")
-                    if "invalid_api_key" in str(api_error).lower():
-                        logger.error("Possible invalid API key")
-                    return None
-                except Exception as e:
-                    logger.error(f"Error in API request: {str(e)}", exc_info=True)
-                    return None
+                # Cache the result
+                self._cache[text] = result
+                logger.info("Анализ задачи успешно завершен")
+                return result
 
-                try:
-                    logger.info("Parsing API response")
-                    result = json.loads(response.choices[0].message.content)
-                    logger.debug(f"Parsed result: {result}")
-
-                    # Validate required fields
-                    required_fields = ['title', 'priority', 'due_date']
-                    if not all(field in result for field in required_fields):
-                        missing = [f for f in required_fields if f not in result]
-                        logger.error(f"Missing required fields in API response: {missing}")
-                        return None
-
-                    # Convert date
-                    try:
-                        result['due_date'] = datetime.strptime(
-                            result['due_date'],
-                            '%Y-%m-%d %H:%M'
-                        )
-                        logger.debug(f"Converted due_date: {result['due_date']}")
-                    except ValueError as e:
-                        logger.error(f"Invalid date format: {result.get('due_date')}, error: {str(e)}")
-                        result['due_date'] = datetime.now() + timedelta(days=1)
-                        logger.info(f"Using default due date: {result['due_date']}")
-
-                    # Cache result
-                    self._cache[text] = result
-                    logger.info("Task analysis completed successfully")
-                    return result
-
-                except json.JSONDecodeError as e:
-                    logger.error(f"JSON parsing error: {str(e)}")
-                    logger.debug(f"Problematic JSON: {response.choices[0].message.content}")
-                    return None
+            except json.JSONDecodeError as e:
+                logger.error(f"Ошибка парсинга ответа API: {str(e)}")
+                return None
 
         except RateLimitError as e:
-            logger.error(f"Rate limit exceeded: {str(e)}")
-            return None
+            logger.error(f"Превышен лимит запросов: {str(e)}")
+            raise
         except Exception as e:
-            logger.error(f"Unexpected error in task analysis: {str(e)}", exc_info=True)
+            logger.error(f"Непредвиденная ошибка при анализе: {str(e)}", exc_info=True)
             return None
-        finally:
-            logger.info("=== Task analysis completed ===")
 
     def clear_cache(self):
         """Clear analysis results cache"""
         self._cache.clear()
-        logger.debug("Task analyzer cache cleared")
+        logger.debug("Кэш анализатора очищен")
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=4, max=10),
-        retry=retry_if_exception_type((APIError, RateLimitError))
-    )
-    async def _make_api_request(self, messages: List[Dict], max_retries: int = 3):
-        """Make API request with retries"""
+    async def test_api_connection(self) -> bool:
+        """Test OpenAI API connection"""
         try:
-            logger.debug(f"Making API request (attempt {max_retries})")
+            logger.info("Проверка подключения к OpenAI API...")
+            messages = [{"role": "user", "content": "Test connection"}]
+
             response = await self.client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-3.5-turbo",
                 messages=messages,
-                response_format={"type": "json_object"},
-                temperature=Config.TASK_ANALYSIS_SETTINGS["ai_temperature"]
+                max_tokens=10,
+                response_format={"type": "json_object"}
             )
-            logger.debug("API request successful")
-            return response
+
+            if response and response.choices:
+                logger.info("✓ Тест подключения к OpenAI API успешен")
+                return True
+
+            logger.error("Тест подключения к OpenAI API не удался: Пустой ответ")
+            return False
+
         except Exception as e:
-            logger.error(f"API request failed: {str(e)}", exc_info=True)
-            raise
+            logger.error(f"Ошибка при проверке подключения к API: {str(e)}", exc_info=True)
+            return False
 
 from typing import List
