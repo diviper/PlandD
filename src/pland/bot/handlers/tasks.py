@@ -1,6 +1,5 @@
 """Task-related message handlers"""
 import logging
-import traceback
 from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.types import Message
@@ -15,7 +14,7 @@ logger = logging.getLogger(__name__)
 task_analyzer = None
 
 async def handle_text_message(message: Message, db: Database):
-    """Обработка текстовых сообщений для создания задач"""
+    """Обработка текстовых сообщений для тестирования связи с OpenAI"""
     try:
         user_id = message.from_user.id
         username = message.from_user.username or "Unknown"
@@ -26,21 +25,11 @@ async def handle_text_message(message: Message, db: Database):
         # Проверяем текст сообщения
         if not message.text:
             logger.warning("Получено пустое сообщение")
-            await message.answer("Пожалуйста, отправьте текст задачи.")
-            return
-
-        # Проверяем длину и содержание сообщения
-        if len(message.text.strip()) < 3 or message.text.strip().isdigit():
-            logger.warning("Получено слишком короткое сообщение или просто число")
-            await message.answer(
-                "🤔 Пожалуйста, опишите задачу подробнее.\n"
-                "Например: 'Подготовить презентацию к завтрашней встрече' или\n"
-                "'Купить продукты для ужина'"
-            )
+            await message.answer("Пожалуйста, отправьте текст для анализа.")
             return
 
         # Отправляем сообщение о получении команды
-        processing_msg = await message.answer("🤔 Анализирую вашу задачу...")
+        processing_msg = await message.answer("🤔 Проверяю связь с OpenAI API...")
 
         try:
             # Инициализируем анализатор задач
@@ -49,71 +38,47 @@ async def handle_text_message(message: Message, db: Database):
                 logger.info("Инициализация TaskAnalyzer...")
                 task_analyzer = TaskAnalyzer()
 
+            # Тестируем подключение
+            is_connected = await task_analyzer.test_api_connection()
+            if not is_connected:
+                await processing_msg.edit_text(
+                    "❌ Не удалось установить связь с OpenAI API.\n"
+                    "Пожалуйста, попробуйте позже."
+                )
+                return
+
             # Анализируем задачу
-            logger.info("Начало анализа задачи через OpenAI")
+            logger.info("Начало тестового анализа")
             analysis = await task_analyzer.analyze_task(message.text)
             logger.debug(f"Результат анализа: {analysis}")
 
             if not analysis:
                 logger.error("Не получен результат анализа")
                 await processing_msg.edit_text(
-                    "🚫 Извините, не удалось проанализировать задачу.\n"
-                    "Пожалуйста, попробуйте описать задачу другими словами."
+                    "🚫 Не удалось выполнить анализ.\n"
+                    "Пожалуйста, попробуйте позже."
                 )
                 return
 
-            # Форматируем ответ пользователю
-            priority_info = analysis["priority"]
-            schedule_info = analysis["schedule"]
-            resources_info = analysis["resources"]
-
-            # Эмодзи для разных уровней приоритета
-            priority_emoji = {
-                "high": "🔴",
-                "medium": "🟡",
-                "low": "🟢"
-            }
-
-            # Эмодзи для уровней фокусировки
-            focus_emoji = {
-                "high": "🎯",
-                "medium": "👁",
-                "low": "📝"
-            }
-
+            # Отправляем простой ответ для тестирования
             response = (
-                f"📋 *Анализ задачи*\n\n"
-                f"{priority_emoji.get(priority_info['level'], '⚪️')} *Приоритет:* {priority_info['level'].upper()}\n"
-                f"├ {priority_info['reason']}\n"
-                f"└ Срочность: {priority_info['urgency']}\n\n"
-                f"⏰ *Расписание*\n"
-                f"├ Оптимальное время: {schedule_info['optimal_time']}\n"
-                f"├ Длительность: {schedule_info['estimated_duration']} мин\n"
-                f"└ Дедлайн: {schedule_info['deadline']}\n\n"
-                f"💪 *Ресурсы*\n"
-                f"├ Энергозатратность: {resources_info['energy_required']}/10\n"
-                f"└ {focus_emoji.get(resources_info['focus_level'], '📝')} Уровень фокусировки: {resources_info['focus_level'].upper()}\n"
+                f"✅ Связь с OpenAI API работает!\n\n"
+                f"Тестовый анализ текста:\n"
+                f"{analysis}"
             )
 
-            if resources_info.get("materials"):
-                response += "\n🔧 *Необходимые материалы:*\n"
-                for material in resources_info["materials"]:
-                    response += f"• {material}\n"
-
-            logger.info("Отправка ответа пользователю")
-            await processing_msg.edit_text(response, parse_mode="Markdown")
-            logger.info("✓ Ответ успешно отправлен")
+            await processing_msg.edit_text(response)
+            logger.info("✓ Тестовый ответ успешно отправлен")
 
         except Exception as e:
-            logger.error(f"Ошибка при анализе задачи: {str(e)}", exc_info=True)
+            logger.error(f"Ошибка при анализе: {str(e)}", exc_info=True)
             await processing_msg.edit_text(
-                "🚫 Произошла ошибка при обработке задачи.\n"
+                "🚫 Произошла ошибка при обработке запроса.\n"
                 "Пожалуйста, попробуйте позже."
             )
 
     except Exception as e:
         logger.error(f"Критическая ошибка в обработке сообщения: {str(e)}", exc_info=True)
-        logger.error(f"Traceback: {traceback.format_exc()}")
         await message.answer(
             "🚫 Произошла ошибка при обработке сообщения.\n"
             "Пожалуйста, попробуйте позже."
@@ -131,7 +96,6 @@ def register_task_handlers(router: Router, db: Database):
         ~F.text.startswith("/")
     )
     logger.info("✓ Зарегистрирован обработчик текстовых сообщений")
-    logger.debug("Добавлен фильтр для текстовых сообщений не начинающихся с /")
 
     # Регистрируем обработчик команды /list
     router.message.register(
