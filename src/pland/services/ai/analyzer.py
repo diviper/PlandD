@@ -1,24 +1,14 @@
 """Task analyzer using OpenAI API"""
 import json
 import logging
-from typing import Optional, Dict, Any
-import asyncio
+from typing import Optional, Dict
 
-from openai import AsyncOpenAI, APIError, RateLimitError
-from tenacity import (
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
+from openai import AsyncOpenAI
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from pland.core.config import Config
 
 logger = logging.getLogger(__name__)
-
-class TaskAnalyzerError(Exception):
-    """Base exception for task analyzer errors"""
-    pass
 
 class TaskAnalyzer:
     """Анализатор задач с использованием OpenAI API"""
@@ -26,76 +16,59 @@ class TaskAnalyzer:
     def __init__(self):
         """Initialize TaskAnalyzer with OpenAI client"""
         if not Config.OPENAI_API_KEY:
-            logger.error("OpenAI API key не найден в переменных окружения")
+            logger.error("OpenAI API key не найден")
             raise ValueError("OpenAI API key обязателен")
 
-        logger.info("Инициализация TaskAnalyzer...")
-        logger.debug(f"Используется OpenAI API ключ оканчивающийся на: ...{Config.OPENAI_API_KEY[-4:]}")
+        self.client = AsyncOpenAI(api_key=Config.OPENAI_API_KEY)
+        logger.info("TaskAnalyzer инициализирован")
 
-        try:
-            self.client = AsyncOpenAI(api_key=Config.OPENAI_API_KEY)
-            logger.info("TaskAnalyzer успешно инициализирован")
-        except Exception as e:
-            logger.error(f"Ошибка инициализации TaskAnalyzer: {str(e)}", exc_info=True)
-            raise
-
-    async def analyze_task(self, text: str) -> Optional[Dict[str, Any]]:
+    async def analyze_task(self, text: str) -> Optional[Dict]:
         """
-        Simple task analysis with OpenAI - for testing connection and basic functionality
+        Простой анализ текста для проверки работы API
 
         Args:
-            text: Task description text
+            text: Текст для анализа
 
         Returns:
-            Dictionary with basic task analysis or None if analysis fails
+            Dict с результатом анализа или None при ошибке
         """
         try:
-            logger.info(f"Начало анализа задачи: {text[:100]}...")
-
-            # Simple system message for testing
             messages = [
                 {
                     "role": "system",
-                    "content": "Ты помощник по анализу задач. Проанализируй задачу кратко."
+                    "content": "Ты помощник по анализу задач. Проанализируй задачу и верни результат в JSON формате."
                 },
                 {
-                    "role": "user", 
+                    "role": "user",
                     "content": f"Проанализируй задачу: {text}"
                 }
             ]
 
-            try:
-                logger.info("Отправка тестового запроса к OpenAI API")
-                response = await self.client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=messages,
-                    temperature=0.7,
-                    max_tokens=100,
-                    response_format={"type": "json_object"}
-                )
+            response = await self.client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=messages,
+                temperature=0.7,
+                max_tokens=150,
+                response_format={"type": "json_object"}
+            )
 
-                logger.info("Получен ответ от OpenAI API")
-                logger.debug(f"Ответ API: {response.choices[0].message.content}")
+            result = json.loads(response.choices[0].message.content)
+            logger.info("Анализ выполнен успешно")
+            return result
 
-                result = json.loads(response.choices[0].message.content)
-                return result
-
-            except json.JSONDecodeError as e:
-                logger.error(f"Ошибка парсинга ответа API: {str(e)}")
-                return None
-
-        except RateLimitError as e:
-            logger.error(f"Превышен лимит запросов: {str(e)}")
-            raise
         except Exception as e:
-            logger.error(f"Непредвиденная ошибка при анализе: {str(e)}", exc_info=True)
+            logger.error(f"Ошибка при анализе: {str(e)}", exc_info=True)
             return None
 
     async def test_api_connection(self) -> bool:
-        """Test OpenAI API connection"""
+        """Проверка подключения к OpenAI API"""
         try:
-            logger.info("Проверка подключения к OpenAI API...")
-            messages = [{"role": "user", "content": "Test connection"}]
+            messages = [
+                {
+                    "role": "user",
+                    "content": "Тестовое сообщение"
+                }
+            ]
 
             response = await self.client.chat.completions.create(
                 model="gpt-3.5-turbo",
@@ -104,15 +77,8 @@ class TaskAnalyzer:
                 response_format={"type": "json_object"}
             )
 
-            if response and response.choices:
-                logger.info("✓ Тест подключения к OpenAI API успешен")
-                return True
-
-            logger.error("Тест подключения к OpenAI API не удался: Пустой ответ")
-            return False
+            return bool(response and response.choices)
 
         except Exception as e:
-            logger.error(f"Ошибка при проверке подключения к API: {str(e)}", exc_info=True)
+            logger.error(f"Ошибка при проверке API: {str(e)}", exc_info=True)
             return False
-
-from typing import List
