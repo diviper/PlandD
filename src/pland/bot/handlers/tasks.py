@@ -34,48 +34,46 @@ async def handle_text_message(message: Message, db: Database):
             # Инициализируем анализатор задач при первом использовании
             global task_analyzer
             if task_analyzer is None:
-                logger.info("Инициализация TaskAnalyzer (тестовый режим)...")
-                task_analyzer = TaskAnalyzer(test_mode=True)
+                logger.info("Инициализация TaskAnalyzer...")
+                task_analyzer = TaskAnalyzer()
                 logger.debug("TaskAnalyzer успешно инициализирован")
 
-            # Анализируем текст с обработкой ошибок как в тестах
-            try:
-                analysis = await task_analyzer.analyze_task(message.text)
+            # Анализируем текст с обработкой ошибок
+            analysis = await task_analyzer.analyze_task(message.text)
 
-                if not analysis:
-                    raise ValueError("Анализ вернул пустой результат")
+            if not analysis:
+                raise ValueError("Анализ вернул пустой результат")
 
-                logger.info(f"Анализ успешно выполнен: {analysis}")
-                # Форматируем ответ для пользователя
-                response = (
-                    f"✅ Анализ задачи:\n\n"
-                    f"🎯 Приоритет: {analysis['priority']['level']}\n"
-                    f"⏰ Оптимальное время: {analysis['schedule']['optimal_time']}\n"
-                    f"⚡️ Требуемая энергия: {analysis['resources']['energy_required']}/10\n\n"
-                    f"📝 Подзадачи:\n"
-                )
-                for task in analysis['schedule']['subtasks']:
-                    response += f"• {task['title']} ({task['duration']} мин)\n"
+            logger.info(f"Анализ успешно выполнен: {analysis}")
+            # Форматируем ответ для пользователя
+            response = (
+                f"✅ Анализ задачи:\n\n"
+                f"🎯 Приоритет: {analysis['priority']['level']}\n"
+                f"🚨 Срочность: {analysis['priority']['urgency']}\n"
+                f"⭐️ Важность: {analysis['priority']['importance']}\n"
+                f"📝 Причина: {analysis['priority']['reason']}\n\n"
+                f"📅 Расписание:\n"
+                f"⏰ Оптимальное время: {analysis['schedule']['optimal_time']}\n"
+                f"⌛️ Длительность: {analysis['schedule']['estimated_duration']} мин\n"
+                f"🎯 Дедлайн: {analysis['schedule']['deadline']}\n"
+                f"⚡️ Требуемая энергия: {analysis['resources']['energy_required']}/10\n\n"
+                f"📋 Подзадачи:\n"
+            )
+            for task in analysis['schedule']['subtasks']:
+                response += f"• {task['title']} ({task['duration']} мин)\n"
 
-                await processing_msg.edit_text(response)
-                logger.debug("Ответ успешно отправлен пользователю")
+            await processing_msg.edit_text(response)
+            logger.debug("Ответ успешно отправлен пользователю")
 
-            except ValueError as ve:
-                logger.error(f"Ошибка валидации: {str(ve)}")
-                await processing_msg.edit_text(
-                    "🚫 Не удалось проанализировать сообщение.\n"
-                    "Пожалуйста, попробуйте переформулировать задачу."
-                )
+        except ValueError as ve:
+            logger.error(f"Ошибка валидации: {str(ve)}")
+            await processing_msg.edit_text(
+                "🚫 Не удалось проанализировать сообщение.\n"
+                "Пожалуйста, попробуйте переформулировать задачу."
+            )
 
-            except Exception as api_error:
-                logger.error(f"Ошибка API: {str(api_error)}", exc_info=True)
-                await processing_msg.edit_text(
-                    "🚫 Произошла ошибка при обработке запроса.\n"
-                    "Пожалуйста, попробуйте позже."
-                )
-
-        except Exception as e:
-            logger.error(f"Ошибка при анализе: {str(e)}", exc_info=True)
+        except Exception as api_error:
+            logger.error(f"Ошибка API: {str(api_error)}", exc_info=True)
             await processing_msg.edit_text(
                 "🚫 Произошла ошибка при обработке запроса.\n"
                 "Пожалуйста, попробуйте позже."
@@ -124,8 +122,8 @@ async def handle_voice_message(message: Message, db: Database):
                 # Инициализируем анализатор при необходимости
                 global task_analyzer
                 if task_analyzer is None:
-                    logger.info("Инициализация TaskAnalyzer (тестовый режим)...")
-                    task_analyzer = TaskAnalyzer(test_mode=True)
+                    logger.info("Инициализация TaskAnalyzer...")
+                    task_analyzer = TaskAnalyzer()
                     logger.debug("TaskAnalyzer успешно инициализирован")
 
                 # Анализируем текст
@@ -138,9 +136,15 @@ async def handle_voice_message(message: Message, db: Database):
                 response = (
                     f"✅ Анализ задачи:\n\n"
                     f"🎯 Приоритет: {analysis['priority']['level']}\n"
+                    f"🚨 Срочность: {analysis['priority']['urgency']}\n"
+                    f"⭐️ Важность: {analysis['priority']['importance']}\n"
+                    f"📝 Причина: {analysis['priority']['reason']}\n\n"
+                    f"📅 Расписание:\n"
                     f"⏰ Оптимальное время: {analysis['schedule']['optimal_time']}\n"
+                    f"⌛️ Длительность: {analysis['schedule']['estimated_duration']} мин\n"
+                    f"🎯 Дедлайн: {analysis['schedule']['deadline']}\n"
                     f"⚡️ Требуемая энергия: {analysis['resources']['energy_required']}/10\n\n"
-                    f"📝 Подзадачи:\n"
+                    f"📋 Подзадачи:\n"
                 )
                 for task in analysis['schedule']['subtasks']:
                     response += f"• {task['title']} ({task['duration']} мин)\n"

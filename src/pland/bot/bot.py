@@ -74,6 +74,7 @@ async def run_bot():
             dp.errors.register(error_handler)
 
             logger.info("Запуск бота в режиме long polling...")
+            # Убираем параметр wait_for_port, так как он не требуется для Telegram бота
             await dp.start_polling(
                 bot,
                 allowed_updates=dp.resolve_used_update_types(),

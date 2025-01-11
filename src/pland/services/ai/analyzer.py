@@ -13,15 +13,14 @@ logger = logging.getLogger(__name__)
 class TaskAnalyzer:
     """Анализатор задач с использованием OpenAI API"""
 
-    def __init__(self, test_mode: bool = False):
+    def __init__(self):
         """Initialize TaskAnalyzer with OpenAI client"""
         if not Config.OPENAI_API_KEY:
             logger.error("OpenAI API key не найден")
             raise ValueError("OpenAI API key обязателен")
 
-        self.test_mode = test_mode
         self.client = AsyncOpenAI(api_key=Config.OPENAI_API_KEY)
-        logger.info(f"TaskAnalyzer инициализирован (test_mode: {test_mode})")
+        logger.info("TaskAnalyzer инициализирован")
 
     @retry(
         stop=stop_after_attempt(3),
@@ -40,40 +39,6 @@ class TaskAnalyzer:
         """
         try:
             logger.debug(f"Начинаю анализ текста: {text[:100]}...")
-
-            if self.test_mode:
-                logger.info("Работаем в тестовом режиме, возвращаем тестовый ответ")
-                return {
-                    "priority": {
-                        "level": "high",
-                        "reason": "Тестовый режим",
-                        "urgency": "срочно",
-                        "importance": "важно"
-                    },
-                    "schedule": {
-                        "optimal_time": "morning",
-                        "estimated_duration": 60,
-                        "deadline": "2025-01-11 15:00",
-                        "buffer_time": 30,
-                        "subtasks": [
-                            {
-                                "title": "Тестовая подзадача",
-                                "description": "Описание тестовой подзадачи",
-                                "duration": 30,
-                                "order": 1
-                            }
-                        ]
-                    },
-                    "resources": {
-                        "energy_required": 8,
-                        "focus_level": "high",
-                        "materials": ["тест"],
-                        "prerequisites": [],
-                        "dependencies": [],
-                        "risks": [],
-                        "optimization_tips": []
-                    }
-                }
 
             messages = [
                 {
@@ -146,10 +111,6 @@ class TaskAnalyzer:
     async def test_api_connection(self) -> bool:
         """Проверка подключения к OpenAI API"""
         try:
-            if self.test_mode:
-                logger.info("Тестовый режим: подключение к API считается успешным")
-                return True
-
             logger.debug("Проверка подключения к OpenAI API...")
             messages = [
                 {
