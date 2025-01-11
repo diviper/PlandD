@@ -50,13 +50,28 @@ async def handle_voice_message(message: Message, db: Database):
             )
 
             # Анализируем текст с помощью OpenAI
+            global task_analyzer
+            if task_analyzer is None:
+                logger.info("Инициализация TaskAnalyzer (тестовый режим)...")
+                task_analyzer = TaskAnalyzer(test_mode=True)
+                logger.debug("TaskAnalyzer успешно инициализирован")
+
             analysis = await task_analyzer.analyze_task(text)
 
             if analysis:
                 logger.info(f"Анализ успешно выполнен: {analysis}")
-                await processing_msg.edit_text(
-                    f"✅ Анализ выполнен:\n\n{analysis}"
+                # Форматируем ответ для пользователя
+                response = (
+                    f"✅ Анализ задачи:\n\n"
+                    f"🎯 Приоритет: {analysis['priority']['level']}\n"
+                    f"⏰ Оптимальное время: {analysis['schedule']['optimal_time']}\n"
+                    f"⚡️ Требуемая энергия: {analysis['resources']['energy_required']}/10\n\n"
+                    f"📝 Подзадачи:\n"
                 )
+                for task in analysis['schedule']['subtasks']:
+                    response += f"• {task['title']} ({task['duration']} мин)\n"
+
+                await processing_msg.edit_text(response)
             else:
                 logger.error("Не удалось выполнить анализ")
                 await processing_msg.edit_text(
@@ -66,11 +81,8 @@ async def handle_voice_message(message: Message, db: Database):
 
         except Exception as e:
             logger.error(f"Ошибка при обработке голосового сообщения: {str(e)}", exc_info=True)
-            error_message = "Произошла ошибка при обработке запроса."
-            if Config.LOG_LEVEL == "DEBUG":
-                error_message += f"\nДетали: {str(e)}"
             await processing_msg.edit_text(
-                f"🚫 {error_message}\n"
+                "🚫 Произошла ошибка при обработке запроса.\n"
                 "Пожалуйста, попробуйте позже."
             )
 
@@ -86,7 +98,7 @@ async def handle_text_message(message: Message, db: Database):
     try:
         user_id = message.from_user.id
         username = message.from_user.username or "Unknown"
-        logger.info(f"Получено сообщение от пользователя {username} (ID: {user_id})")
+        logger.info(f"Получено текстовое сообщение от пользователя {username} (ID: {user_id})")
         logger.debug(f"Текст сообщения: {message.text}")
 
         # Проверяем текст сообщения
@@ -101,8 +113,8 @@ async def handle_text_message(message: Message, db: Database):
             # Инициализируем анализатор задач при первом использовании
             global task_analyzer
             if task_analyzer is None:
-                logger.info("Инициализация TaskAnalyzer...")
-                task_analyzer = TaskAnalyzer()
+                logger.info("Инициализация TaskAnalyzer (тестовый режим)...")
+                task_analyzer = TaskAnalyzer(test_mode=True)
                 logger.debug("TaskAnalyzer успешно инициализирован")
 
             # Проверяем подключение к API
@@ -116,15 +128,23 @@ async def handle_text_message(message: Message, db: Database):
                 )
                 return
 
-            logger.info(f"Начинаю анализ текста: '{message.text[:50]}...'")
-            # Тестовый анализ текста
+            # Анализируем текст
             analysis = await task_analyzer.analyze_task(message.text)
 
             if analysis:
                 logger.info(f"Анализ успешно выполнен: {analysis}")
-                await processing_msg.edit_text(
-                    f"✅ Анализ выполнен:\n\n{analysis}"
+                # Форматируем ответ для пользователя
+                response = (
+                    f"✅ Анализ задачи:\n\n"
+                    f"🎯 Приоритет: {analysis['priority']['level']}\n"
+                    f"⏰ Оптимальное время: {analysis['schedule']['optimal_time']}\n"
+                    f"⚡️ Требуемая энергия: {analysis['resources']['energy_required']}/10\n\n"
+                    f"📝 Подзадачи:\n"
                 )
+                for task in analysis['schedule']['subtasks']:
+                    response += f"• {task['title']} ({task['duration']} мин)\n"
+
+                await processing_msg.edit_text(response)
             else:
                 logger.error("Не удалось выполнить анализ: результат пустой")
                 await processing_msg.edit_text(
@@ -134,11 +154,8 @@ async def handle_text_message(message: Message, db: Database):
 
         except Exception as e:
             logger.error(f"Ошибка при анализе: {str(e)}", exc_info=True)
-            error_message = "Произошла ошибка при обработке запроса."
-            if Config.LOG_LEVEL == "DEBUG":
-                error_message += f"\nДетали: {str(e)}"
             await processing_msg.edit_text(
-                f"🚫 {error_message}\n"
+                "🚫 Произошла ошибка при обработке запроса.\n"
                 "Пожалуйста, попробуйте позже."
             )
 
@@ -151,18 +168,22 @@ async def handle_text_message(message: Message, db: Database):
 
 def register_task_handlers(router: Router, db: Database):
     """Register task-related message handlers"""
-    logger.info("Регистрация обработчиков задач...")
+    try:
+        logger.info("Регистрация обработчиков задач...")
 
-    # Регистрируем обработчик текстовых сообщений
-    router.message.register(
-        lambda msg: handle_text_message(msg, db),
-        F.text  # Простой фильтр для текстовых сообщений
-    )
+        # Регистрируем обработчик текстовых сообщений
+        router.message.register(
+            lambda msg, db=db: handle_text_message(msg, db),
+            F.text  # Фильтр для текстовых сообщений
+        )
 
-    # Регистрируем обработчик голосовых сообщений
-    router.message.register(
-        lambda msg: handle_voice_message(msg, db),
-        F.voice  # Фильтр для голосовых сообщений
-    )
+        # Регистрируем обработчик голосовых сообщений
+        router.message.register(
+            lambda msg, db=db: handle_voice_message(msg, db),
+            F.voice  # Фильтр для голосовых сообщений
+        )
 
-    logger.info("✓ Обработчики сообщений зарегистрированы")
+        logger.info("✓ Обработчики сообщений зарегистрированы")
+    except Exception as e:
+        logger.error(f"Ошибка при регистрации обработчиков: {str(e)}", exc_info=True)
+        raise

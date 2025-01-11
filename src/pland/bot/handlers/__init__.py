@@ -25,7 +25,7 @@ def register_handlers(router: Router, db: Database):
 
         # Регистрируем обработчики задач
         tasks_router = Router(name="tasks_router")
-        register_task_handlers(tasks_router, db)
+        register_task_handlers(tasks_router, db)  # Изменено здесь
         router.include_router(tasks_router)
         logger.info("✓ Зарегистрированы обработчики задач")
         logger.debug(f"Роутер задач добавлен: {tasks_router.name}")

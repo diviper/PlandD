@@ -44,6 +44,7 @@ async def run_bot():
             logger.error("Отсутствуют необходимые токены")
             return
 
+        logger.info("Инициализация бота...")
         bot = Bot(
             token=Config.BOT_TOKEN,
             default=DefaultBotProperties(parse_mode="HTML")
@@ -53,16 +54,18 @@ async def run_bot():
             return
 
         try:
+            logger.info("Настройка диспетчера и хранилища...")
             storage = MemoryStorage()
             dp = Dispatcher(storage=storage)
             db = Database()
 
             router = Router(name="main_router")
+            logger.info("Регистрация обработчиков...")
             register_handlers(router, db)
             dp.include_router(router)
             dp.errors.register(error_handler)
 
-            logger.info("Starting long polling")
+            logger.info("Запуск бота в режиме long polling...")
             await dp.start_polling(
                 bot,
                 allowed_updates=dp.resolve_used_update_types(),
