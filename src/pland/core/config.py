@@ -1,11 +1,11 @@
 """Configuration module for PlanD"""
 import logging
 import os
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, ClassVar, TypedDict, Union
-
+from typing import Dict, List, Literal, Optional, ClassVar, TypedDict, Union, Any
 from dotenv import load_dotenv
 
 # Project paths
@@ -16,14 +16,64 @@ LOG_DIR = ROOT_DIR / 'logs'
 # Create necessary directories
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-# Load environment variables
+# Load environment variables with explicit path
 load_dotenv(ENV_PATH)
-logger = logging.getLogger(__name__)
 
-# Log the loading of environment variables
-logger.info(f"Loading environment from: {ENV_PATH}")
-logger.info(f"OpenAI API Key loaded: {'*' * 5}{os.getenv('OPENAI_API_KEY', '')[-4:]}")
-logger.info(f"Bot Token loaded: {'*' * 5}{os.getenv('BOT_TOKEN', '')[-4:]}")
+# Setup logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+def validate_openai_key(key: Optional[str]) -> bool:
+    """
+    Validate OpenAI API key format and presence
+    Returns True if key is valid, False otherwise
+    """
+    if not key:
+        logger.error("OpenAI API key is missing")
+        return False
+
+    # Check for basic format (starts with 'sk-' and has sufficient length)
+    if not key.startswith('sk-') or len(key) < 20:
+        logger.error("OpenAI API key format is invalid")
+        return False
+
+    return True
+
+def validate_bot_token(token: Optional[str]) -> bool:
+    """
+    Validate Telegram bot token format and presence
+    Returns True if token is valid, False otherwise
+    """
+    if not token:
+        logger.error("Telegram bot token is missing")
+        return False
+
+    # Check for basic format (numbers:alphanumeric)
+    if not re.match(r'^\d+:[A-Za-z0-9_-]{35,}$', token):
+        logger.error("Telegram bot token format is invalid")
+        return False
+
+    return True
+
+# Get and validate API keys with DEBUG info
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+BOT_TOKEN = os.getenv('BOT_TOKEN', '')
+
+logger.debug(f"Загружены ключи из .env файла:")
+logger.debug(f"OPENAI_API_KEY найден: {'Да' if OPENAI_API_KEY else 'Нет'}")
+logger.debug(f"BOT_TOKEN найден: {'Да' if BOT_TOKEN else 'Нет'}")
+
+# Validate keys and log results with detailed information
+if validate_openai_key(OPENAI_API_KEY):
+    logger.info(f"OpenAI API Key loaded and validated: {'*' * 5}{OPENAI_API_KEY[-4:]}")
+else:
+    logger.critical("Invalid or missing OpenAI API key")
+
+if validate_bot_token(BOT_TOKEN):
+    logger.info(f"Bot Token loaded and validated: {'*' * 5}{BOT_TOKEN[-4:]}")
+else:
+    logger.critical("Invalid or missing Telegram bot token")
+
 
 # Get log level from environment or default to INFO
 LOG_LEVEL = getattr(logging, os.getenv('LOG_LEVEL', 'DEBUG').upper())
@@ -118,21 +168,31 @@ class Config:
     DATABASE_DIR.mkdir(parents=True, exist_ok=True)
 
     # API Tokens with validation
-    BOT_TOKEN: ClassVar[str] = os.getenv('BOT_TOKEN', '')
-    OPENAI_API_KEY: ClassVar[str] = os.getenv('OPENAI_API_KEY', '')
+    BOT_TOKEN: ClassVar[str] = BOT_TOKEN
+    OPENAI_API_KEY: ClassVar[str] = OPENAI_API_KEY
 
     @classmethod
     def __post_init__(cls):
         """Validate required environment variables"""
-        if not cls.BOT_TOKEN:
-            logger.error("BOT_TOKEN not found in environment variables")
-            raise ValueError("BOT_TOKEN is required")
+        if not validate_bot_token(cls.BOT_TOKEN):
+            raise ValueError("Invalid or missing BOT_TOKEN")
 
-        if not cls.OPENAI_API_KEY:
-            logger.error("OPENAI_API_KEY not found in environment variables")
-            raise ValueError("OPENAI_API_KEY is required")
+        if not validate_openai_key(cls.OPENAI_API_KEY):
+            raise ValueError("Invalid or missing OPENAI_API_KEY")
 
-        logger.info("Configuration loaded successfully")
+        logger.info("Configuration loaded and validated successfully")
+
+    # OpenAI specific settings
+    OPENAI_SETTINGS: ClassVar[Dict[str, Any]] = {
+        "default_model": "gpt-3.5-turbo",
+        "fallback_model": "gpt-3.5-turbo",
+        "max_retries": 3,
+        "initial_retry_delay": 1,
+        "max_retry_delay": 30,
+        "rate_limit_retry_delay": 60,
+        "timeout": 30,
+        "max_tokens": 1000,
+    }
 
     # Time formats
     TIME_FORMAT: ClassVar[str] = "%H:%M"
