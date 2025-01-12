@@ -9,6 +9,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import Message, ErrorEvent
 
 from src.bot.handlers import register_handlers
+from src.bot.handlers.plan_handler import register_handlers as register_plan_handlers
 from src.core.config import Config
 from src.database.database import Database
 from src.database.db import init_db
@@ -84,7 +85,15 @@ async def run_bot():
 
             # Регистрируем обработчики
             logger.info("Регистрация обработчиков...")
-            register_handlers(main_router, db)
+            def setup_handlers(dp: Dispatcher):
+                """Setup message handlers"""
+                # Register base handlers
+                register_handlers(dp, db)
+                
+                # Register plan handlers
+                register_plan_handlers(dp)
+                
+            setup_handlers(dp)
 
             # Регистрируем глобальный обработчик ошибок
             dp.errors.register(error_handler)

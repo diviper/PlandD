@@ -5,6 +5,8 @@ env/
 venv/
 ENV/
 *.env
+.env.local
+.env.*.local
 
 # Python
 __pycache__/
@@ -28,48 +30,40 @@ wheels/
 .installed.cfg
 *.egg
 
-# Database
-*.db
-*.sqlite3
-*.sqlite
-
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
-.project
-.pydevproject
-.settings/
-
-# Logs and temporary files
-logs/
-*.log
-*.tmp
 .DS_Store
 Thumbs.db
 
 # Project specific
-data/tasks.db
+*.db
+*.sqlite3
+*.log
+logs/
+temp/
+uploads/
 .coverage
 htmlcov/
 .pytest_cache/
 .mypy_cache/
 
 # Dependencies
-pip-log.txt
-pip-delete-this-directory.txt
+node_modules/
+package-lock.json
+yarn.lock
 
 # Documentation
 docs/_build/
-docs/generated/
+site/
 
-# Internal documentation
-INTERNAL*.md
-README.internal.md
-# *.internal.md  # Временно отключаем это правило
 # Backup files
 *.bak
 *~
-*.old
-*.orig
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+README.internal.md

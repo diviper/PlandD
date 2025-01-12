@@ -2,6 +2,7 @@
 import json
 import logging
 from typing import Dict, Any, Optional
+from datetime import datetime, timedelta
 
 import openai
 from openai import AsyncOpenAI
@@ -22,48 +23,120 @@ class AIService:
         logger.info("AI service initialized successfully")
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
-    async def analyze_plan(self, description: str, plan_type: str) -> Optional[Dict[str, Any]]:
+    async def analyze_text(self, text: str) -> Optional[Dict[str, Any]]:
+        """Анализ текста для извлечения структурированной информации"""
+        try:
+            system_prompt = """Ты - ИИ помощник в стиле Рика из "Рика и Морти". 
+Проанализируй текст и верни структурированную информацию.
+Используй научный подход с щепоткой безумного юмора.
+
+Верни JSON в формате:
+{
+    'task_type': 'тип задачи (work/personal/adventure)',
+    'priority': 'high/medium/low',
+    'estimated_duration': 'длительность в минутах (int)',
+    'complexity': 'сложность 1-10',
+    'rick_comment': 'саркастичный комментарий от Рика',
+    'parsed_date': 'если есть дата в тексте, в формате YYYY-MM-DD',
+    'parsed_time': 'если есть время в тексте, в формате HH:MM',
+    'entities': {
+        'people': ['упомянутые люди'],
+        'places': ['упомянутые места'],
+        'items': ['упомянутые предметы']
+    }
+}"""
+
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Текст: {text}"}
+            ]
+
+            response = await self.client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=messages,
+                temperature=0.7,
+                max_tokens=800
+            )
+
+            result = json.loads(response.choices[0].message.content.replace("'", '"'))
+            logger.debug(f"Результат анализа текста: {result}")
+            return result
+
+        except Exception as e:
+            logger.error(f"Ошибка при анализе текста: {e}")
+            return None
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
+    async def analyze_plan(self, description: str, plan_type: str = "task") -> Optional[Dict[str, Any]]:
         """Analyze plan description and generate structured plan"""
         try:
             logger.debug(f"Анализ плана типа {plan_type}: {description[:100]}...")
             
-            system_prompt = """Ты - AI планировщик. Проанализируй цель и создай структурированный план.
+            system_prompt = """Ты - ИИ помощник в стиле Рика из "Рика и Морти". 
+Проанализируй план и разбей его на конкретные шаги. Используй научный подход с щепоткой безумного юмора.
+
 Верни JSON в формате:
 {
-  'title': 'краткое название плана',
-  'description': 'описание цели',
-  'estimated_duration': 'примерная длительность в днях',
-  'priority': 'high/medium/low',
-  'steps': [
-    {
-      'title': 'название шага',
-      'description': 'описание',
-      'duration': 'длительность в днях',
-      'prerequisites': ['id предыдущих шагов'],
-      'metrics': ['критерии выполнения']
-    }
-  ],
-  'recommendations': ['советы по выполнению'],
-  'potential_blockers': ['возможные препятствия']
+    'title': 'краткое название плана в стиле Рика',
+    'steps': [
+        {
+            'description': 'описание шага с отсылкой к шоу',
+            'duration': 'длительность в минутах (int)',
+            'priority': 'high/medium/low',
+            'rick_comment': 'саркастичный комментарий от Рика'
+        }
+    ],
+    'suggestions': 'общие рекомендации в стиле Рика',
+    'energy_required': 'high/medium/low',
+    'dimension_risk': 'шуточная оценка риска для мультивселенной'
 }"""
+
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"План: {description}"}
+            ]
 
             response = await self.client.chat.completions.create(
                 model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Тип плана: {plan_type}\nОписание: {description}"}
-                ],
-                max_tokens=1000,
-                temperature=0.7
+                messages=messages,
+                temperature=0.8,
+                max_tokens=1000
             )
 
-            plan_data = json.loads(response.choices[0].message.content.replace("'", '"'))
-            logger.info(f"План успешно проанализирован: {plan_data['title']}")
-            return plan_data
+            result = json.loads(response.choices[0].message.content.replace("'", '"'))
+            logger.debug(f"Результат анализа плана: {result}")
+            return result
 
         except Exception as e:
-            logger.error(f"Ошибка при анализе плана: {str(e)}")
+            logger.error(f"Ошибка при анализе плана: {e}")
             return None
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
+    async def generate_response(self, context: Dict[str, Any]) -> str:
+        """Генерация ответа в стиле Рика"""
+        try:
+            prompt = f"""На основе этих данных создай ответ в стиле Рика из "Рика и Морти":
+            {json.dumps(context, ensure_ascii=False, indent=2)}
+            
+            Добавь научное безумие и сарказм!"""
+
+            messages = [
+                {"role": "system", "content": "Ты - Рик Санчез, гений и безумный ученый."},
+                {"role": "user", "content": prompt}
+            ]
+
+            response = await self.client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=messages,
+                temperature=0.8,
+                max_tokens=300
+            )
+
+            return response.choices[0].message.content
+
+        except Exception as e:
+            logger.error(f"Ошибка при генерации ответа: {e}")
+            return "Упс, что-то пошло не так... *burp*"
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
     async def learn_patterns(self, user_id: int) -> Optional[Dict[str, Any]]:
@@ -114,5 +187,5 @@ class AIService:
             return patterns
 
         except Exception as e:
-            logger.error(f"Ошибка при анализе паттернов: {str(e)}")
+            logger.error(f"Ошибка при анализе паттернов: {e}")
             return None
