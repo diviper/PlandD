@@ -64,6 +64,11 @@ pip-delete-this-directory.txt
 docs/_build/
 docs/generated/
 
+# Internal documentation
+README.internal.md
+INTERNAL*.md
+*.internal.md
+
 # Backup files
 *.bak
 *~
