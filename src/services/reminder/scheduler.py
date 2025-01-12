@@ -8,8 +8,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
-from pland.core.config import Config
-from pland.database.database import Database
+from src.core.config import Config
+from src.database.database import Database
 
 logger = logging.getLogger(__name__)
 

@@ -7,9 +7,9 @@ from aiogram.exceptions import TelegramAPIError
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import Message, ErrorEvent
 
-from pland.bot.handlers import register_handlers
-from pland.core.config import Config
-from pland.database.database import Database
+from src.bot.handlers import register_handlers
+from src.core.config import Config
+from src.database.database import Database
 
 logger = logging.getLogger(__name__)
 

@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Tuple
 from openai import AsyncOpenAI, APIError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
-from pland.core.config import Config
+from src.core.config import Config
 
 logger = logging.getLogger(__name__)
 
