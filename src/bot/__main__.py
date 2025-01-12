@@ -3,8 +3,8 @@ import asyncio
 import logging
 import sys
 
-from pland.bot.bot import run_bot
-from pland.core.config import setup_logging
+from src.bot.bot import run_bot
+from src.core.config import setup_logging
 
 logger = logging.getLogger(__name__)
 
