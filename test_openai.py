@@ -14,17 +14,28 @@ async def test_ai_service():
     ai_service = AIService(db)
     
     # Создаем тестовые предпочтения пользователя
-    test_prefs = UserPreferences(
-        user_id=123,
-        preferred_work_hours="9:00-17:00",
-        peak_productivity_hours="10:00-12:00",
-        typical_energy_curve="High morning, low afternoon",
-        avg_task_completion_rate=0.75,
-        common_distractions="['Social media', 'Email']"
-    )
     session = db.get_session()
     try:
-        session.merge(test_prefs)
+        # Сначала проверяем, существует ли запись
+        existing_prefs = session.query(UserPreferences).filter_by(user_id=123).first()
+        if existing_prefs:
+            # Обновляем существующую запись
+            existing_prefs.preferred_work_hours = "9:00-17:00"
+            existing_prefs.peak_productivity_hours = "10:00-12:00"
+            existing_prefs.typical_energy_curve = "High morning, low afternoon"
+            existing_prefs.avg_task_completion_rate = 0.75
+            existing_prefs.common_distractions = "['Social media', 'Email']"
+        else:
+            # Создаем новую запись
+            test_prefs = UserPreferences(
+                user_id=123,
+                preferred_work_hours="9:00-17:00",
+                peak_productivity_hours="10:00-12:00",
+                typical_energy_curve="High morning, low afternoon",
+                avg_task_completion_rate=0.75,
+                common_distractions="['Social media', 'Email']"
+            )
+            session.add(test_prefs)
         session.commit()
     finally:
         session.close()
