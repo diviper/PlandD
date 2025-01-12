@@ -66,8 +66,8 @@ docs/generated/
 
 # Internal documentation
 INTERNAL*.md
-*.internal.md
 README.internal.md
+# *.internal.md  # Временно отключаем это правило
 # Backup files
 *.bak
 *~

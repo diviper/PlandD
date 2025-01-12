@@ -5,13 +5,13 @@ from aiogram import Router, F
 from aiogram.types import Message
 
 from src.database.database import Database
-from src.services.ai import TaskAnalyzer
+from src.services.ai import AIService
 from src.services.ai.nlp_processor import NLPProcessor
 
 logger = logging.getLogger(__name__)
 
 # Глобальные экземпляры сервисов
-task_analyzer: TaskAnalyzer | None = None
+ai_service: AIService | None = None
 nlp_processor: NLPProcessor | None = None
 
 async def handle_text_message(message: Message, db: Database):
@@ -24,9 +24,9 @@ async def handle_text_message(message: Message, db: Database):
         processing_msg = await message.answer("🤔 Анализирую сообщение...")
 
         # Инициализируем сервисы при первом использовании
-        global task_analyzer, nlp_processor
-        if task_analyzer is None:
-            task_analyzer = TaskAnalyzer()
+        global ai_service, nlp_processor
+        if ai_service is None:
+            ai_service = AIService(db)
         if nlp_processor is None:
             nlp_processor = NLPProcessor()
 
@@ -39,8 +39,9 @@ async def handle_text_message(message: Message, db: Database):
             )
             return
 
-        # Анализируем задачу
-        analysis = await task_analyzer.analyze_task(message.text)
+        # Анализируем задачу через AI сервис
+        task_type = nlp_result.get('task_type', 'general')
+        analysis = await ai_service.analyze_plan(message.text, task_type)
         if not analysis:
             await message.answer(
                 "❌ Не удалось проанализировать задачу.\n"
@@ -69,37 +70,38 @@ async def handle_text_message(message: Message, db: Database):
                 microsecond=0
             ) + timedelta(hours=1)
 
-        # Обновляем длительность задачи если она указана в сообщении
+        # Получаем длительность из анализа AI
+        duration = int(float(analysis.get('estimated_duration', 1)) * 24 * 60)  # конвертируем дни в минуты
         if time_info.get('duration'):
-            analysis['duration'] = time_info['duration']
+            duration = time_info['duration']
 
         # Формируем ответ пользователю
         response_parts = [
             f"✅ Я понял вашу задачу:\n",
-            f"🎯 Тип: {nlp_result.get('task_type', 'Не указан')}",
+            f"🎯 {analysis['title']}",
             f"⚡️ Приоритет: {analysis['priority']}",
             f"⏰ Время: {task_time.strftime('%H:%M')}",
-            f"⌛️ Длительность: {analysis['duration']} минут\n"
+            f"⌛️ Длительность: {duration} минут\n"
         ]
 
-        if nlp_result.get('required_resources'):
-            response_parts.append("🛠 Потребуется:")
-            for resource in nlp_result['required_resources']:
-                response_parts.append(f"  • {resource}")
-            response_parts.append("")
-
-        if analysis.get('subtasks'):
-            response_parts.append("📋 Подзадачи:")
-            for i, subtask in enumerate(analysis['subtasks'], 1):
+        if analysis.get('steps'):
+            response_parts.append("📋 Шаги:")
+            for i, step in enumerate(analysis['steps'], 1):
                 response_parts.append(
-                    f"{i}. {subtask['title']} ({subtask['duration']} мин)"
+                    f"{i}. {step['title']} ({int(float(step['duration']) * 24 * 60)} мин)"
                 )
             response_parts.append("")
 
-        if nlp_result.get('dependencies'):
-            response_parts.append("🔄 Зависимости:")
-            for dep in nlp_result['dependencies']:
-                response_parts.append(f"  • {dep}")
+        if analysis.get('recommendations'):
+            response_parts.append("💡 Рекомендации:")
+            for rec in analysis['recommendations']:
+                response_parts.append(f"  • {rec}")
+            response_parts.append("")
+
+        if analysis.get('potential_blockers'):
+            response_parts.append("⚠️ Возможные препятствия:")
+            for blocker in analysis['potential_blockers']:
+                response_parts.append(f"  • {blocker}")
             response_parts.append("")
 
         # Добавляем оценку сложности
@@ -116,9 +118,9 @@ async def handle_text_message(message: Message, db: Database):
             user_id=message.from_user.id,
             text=message.text,
             deadline=task_time,
-            priority=analysis['priority'],
-            duration=analysis['duration'],
-            task_type=nlp_result.get('task_type'),
+            priority=analysis['priority'].lower(),
+            duration=duration,
+            task_type=task_type,
             complexity=complexity
         )
 
