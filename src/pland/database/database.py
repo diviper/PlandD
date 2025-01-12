@@ -5,7 +5,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import select, or_
 
-from src.core.config import Config
+from pland.core.config import Config
 from .db import Session as DBSession, init_db
 from .models import Task, Schedule, Meal, ReminderSettings
 

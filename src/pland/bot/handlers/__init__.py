@@ -1,7 +1,7 @@
 """Handlers package initialization"""
 import logging
 from aiogram import Router
-from src.database.database import Database
+from pland.database.database import Database
 
 from .base import register_base_handlers
 from .tasks import register_task_handlers
