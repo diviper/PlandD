@@ -1,5 +1,5 @@
 """Database package initialization"""
 from .database import Database
-from .models import Task, Schedule, Meal
+from .models import Plan, PlanStep, PlanProgress, UserPreferences
 
-__all__ = ["Database", "Task", "Schedule", "Meal"]
+__all__ = ["Database", "Plan", "PlanStep", "PlanProgress", "UserPreferences"]

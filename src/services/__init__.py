@@ -1,5 +1,5 @@
 """Services package initialization"""
-from .ai import TaskAnalyzer, TaskPlanner
+from .ai import AIService
 from .reminder import ReminderScheduler, Notifier
 
-__all__ = ["TaskAnalyzer", "TaskPlanner", "ReminderScheduler", "Notifier"]
+__all__ = ["AIService", "ReminderScheduler", "Notifier"]

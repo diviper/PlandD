@@ -161,7 +161,8 @@ class AIService:
         """
         try:
             # Получаем данные пользователя
-            prefs = await self.db.get_session().query(UserPreferences).filter_by(user_id=user_id).first()
+            session = self.db.get_session()
+            prefs = session.query(UserPreferences).filter_by(user_id=user_id).first()
             if not prefs:
                 logger.warning(f"Предпочтения пользователя {user_id} не найдены")
                 return None
@@ -186,15 +187,13 @@ class AIService:
                 },
                 {
                     "role": "user",
-                    "content": (
-                        f"Предпочтения: {json.dumps({\n"
-                        f"  'work_hours': prefs.preferred_work_hours,\n"
-                        f"  'peak_hours': prefs.peak_productivity_hours,\n"
-                        f"  'energy_curve': prefs.typical_energy_curve,\n"
-                        f"  'success_rate': prefs.avg_task_completion_rate,\n"
-                        f"  'distractions': prefs.common_distractions\n"
-                        f"})}"
-                    )
+                    "content": "Предпочтения: " + json.dumps({
+                        'work_hours': prefs.preferred_work_hours,
+                        'peak_hours': prefs.peak_productivity_hours,
+                        'energy_curve': prefs.typical_energy_curve,
+                        'success_rate': prefs.avg_task_completion_rate,
+                        'distractions': prefs.common_distractions
+                    })
                 }
             ]
 
@@ -214,6 +213,8 @@ class AIService:
         except Exception as e:
             logger.error(f"Ошибка при анализе паттернов: {str(e)}")
             return None
+        finally:
+            session.close()
 
     async def suggest_improvements(self, plan_id: int) -> Optional[Dict]:
         """

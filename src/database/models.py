@@ -1,9 +1,12 @@
-"""Database models for PlanD"""
+"""Database models"""
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, JSON, Float
+from typing import List, Optional
+import json
+
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, JSON, Float
 from sqlalchemy.orm import relationship
 
-from .database import Base
+from src.database.base import Base
 
 class Plan(Base):
     """План пользователя"""

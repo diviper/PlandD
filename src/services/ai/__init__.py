@@ -1,5 +1,4 @@
 """AI services package initialization"""
-from .analyzer import TaskAnalyzer
-from .planner import TaskPlanner
+from .ai_service import AIService
 
-__all__ = ["TaskAnalyzer", "TaskPlanner"]
+__all__ = ["AIService"]
