@@ -1,10 +1,12 @@
 """План-хендлер в стиле Рика и Морти"""
 import logging
+import traceback
 from datetime import datetime
 from aiogram import types, Router, F
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
+from aiogram.methods import SendMessage
 from src.database.database import Database
 from src.database.models import Plan, PlanStep
 from src.services.ai.ai_service import AIService
@@ -20,15 +22,24 @@ class PlanStates(StatesGroup):
 # Создаем роутер для планов
 router = Router(name="plans")
 
-async def cmd_plan(message: types.Message, state: FSMContext):
-    """Обработчик команды /plan"""
-    await message.reply(
-        "Воу-воу, *burp* какие планы на сегодня?\n"
-        "Давай, Морти, выкладывай свои дела, а я *burp* разложу их по полочкам!\n"
-        "Только без этой занудной ерунды, ок?",
-        parse_mode="Markdown"
-    )
-    await PlanStates.WAITING_FOR_PLAN.set()
+async def cmd_plan(message: types.Message, state: FSMContext) -> SendMessage:
+    """
+    Handle /plan command
+    """
+    try:
+        await state.set_state(PlanStates.WAITING_FOR_PLAN)
+        text = (
+            "Отлично, Морти! *burp* 🥒\n\n"
+            "Расскажи мне о своем плане, и я помогу тебе его оптимизировать!\n"
+            "Можешь описать все подробно, я пойму."
+        )
+        return SendMessage(chat_id=message.chat.id, text=text)
+
+    except Exception as e:
+        error_msg = f"Ошибка при обработке команды /plan: {str(e)}"
+        logger.error(error_msg)
+        logger.debug(f"Traceback: {traceback.format_exc()}")
+        return SendMessage(chat_id=message.chat.id, text=error_msg)
 
 async def process_plan_input(message: types.Message, state: FSMContext, ai_service: AIService, db: Database):
     """Обработка введенного плана"""
@@ -106,14 +117,15 @@ async def callback_edit_plan(callback_query: types.CallbackQuery, state: FSMCont
 def register_handlers(dp: Router):
     """Регистрация обработчиков"""
     # Команды
-    dp.message.register(cmd_plan, Command("plan"))
+    router.message.register(cmd_plan, Command("plan"))
     
     # Обработка состояний
-    dp.message.register(process_plan_input, StateFilter(PlanStates.WAITING_FOR_PLAN))
+    router.message.register(process_plan_input, StateFilter(PlanStates.WAITING_FOR_PLAN))
     
     # Колбэки
-    dp.callback_query.register(callback_accept_plan, F.data.startswith("accept_plan:"))
-    dp.callback_query.register(callback_edit_plan, F.data.startswith("edit_plan:"))
+    router.callback_query.register(callback_accept_plan, F.data.startswith("accept_plan:"))
+    router.callback_query.register(callback_edit_plan, F.data.startswith("edit_plan:"))
     
-    # Подключаем роутер к диспетчеру
-    dp.include_router(router)
+    # Подключаем роутер к диспетчеру, если он еще не подключен
+    if router.parent_router is None:
+        dp.include_router(router)
