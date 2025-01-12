@@ -1,52 +1,71 @@
-# Python essentials
+# Environments and secrets
+.env
+.venv
+env/
+venv/
+ENV/
+*.env
+
+# Python
 __pycache__/
 *.py[cod]
+*$py.class
 *.so
+.Python
 build/
+develop-eggs/
 dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
 *.egg-info/
+.installed.cfg
+*.egg
 
-# Environment and secrets
-venv/
-.venv/
-.env
-.env.*
-!.env.example
-*.ssh
-*ssh_key*
-*.pem
-*.key
-*.pub
-.ssh/
-
-# Project specific
+# Database
 *.db
 *.sqlite3
-/src/pland/database/data/*.db
-!/src/pland/database/data/.gitkeep
+*.sqlite
 
-# Logs and cache
-*.log
-logs/
-.pytest_cache/
-.coverage
-tasks_handler.log
-
-# IDE and system
+# IDE
 .idea/
 .vscode/
+*.swp
+*.swo
+.project
+.pydevproject
+.settings/
+
+# Logs and temporary files
+logs/
+*.log
+*.tmp
 .DS_Store
 Thumbs.db
 
-# Replit specific
-.replit
-replit.nix
-.config/
+# Project specific
+data/tasks.db
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
 
-# Temporary and generated files
-temp/
-/temp/
-attached_assets/
-generated-icon.png
-PROJECT_STRUCTURE.md
-README.internal.md
+# Dependencies
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Documentation
+docs/_build/
+docs/generated/
+
+# Backup files
+*.bak
+*~
+*.old
+*.orig
