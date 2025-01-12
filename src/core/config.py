@@ -209,10 +209,10 @@ class Config:
 
     # Notification templates
     NOTIFICATION_FORMATS: ClassVar[Dict[str, str]] = {
-        "task_reminder": "🔔 Напоминание о задаче: {task_title}",
-        "daily_summary": "📅 Ваш план на сегодня:",
-        "energy_alert": "⚡️ Рекомендация по энергии: {message}",
-        "break_time": "☕️ Время для перерыва!"
+        "task_reminder": "Напоминание о задаче: {task_title}",
+        "daily_summary": "Ваш план на сегодня:",
+        "energy_alert": "Рекомендация по энергии: {message}",
+        "break_time": "Время для перерыва!"
     }
 
     # Task analysis settings
@@ -271,3 +271,35 @@ class Config:
         "optimize": "Оптимизировать расписание",
         "energy": "Показать рекомендации по энергии"
     }
+
+class ConfigNew:
+    """Configuration class"""
+    # Bot settings
+    BOT_TOKEN = os.getenv('BOT_TOKEN')
+    if not BOT_TOKEN:
+        raise ValueError('Missing BOT_TOKEN in environment variables')
+
+    # OpenAI settings
+    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+    if not OPENAI_API_KEY:
+        raise ValueError('Missing OPENAI_API_KEY in environment variables')
+
+    # Logging settings
+    LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
+    logging.basicConfig(
+        level=LOG_LEVEL,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+
+    # Database settings
+    DATABASE_PATH = os.getenv('DATABASE_PATH', 'tasks.db')
+    if not os.path.isabs(DATABASE_PATH):
+        DATABASE_PATH = str(Path(__file__).parent.parent.parent / DATABASE_PATH)
+
+    # Task analysis settings
+    MIN_TASK_LENGTH = int(os.getenv('MIN_TASK_LENGTH', '10'))
+    MAX_TASK_LENGTH = int(os.getenv('MAX_TASK_LENGTH', '1000'))
+
+    # Reminder settings
+    DEFAULT_REMINDER_MINUTES = int(os.getenv('DEFAULT_REMINDER_MINUTES', '30'))
+    MAX_REMINDERS_PER_TASK = int(os.getenv('MAX_REMINDERS_PER_TASK', '5'))
