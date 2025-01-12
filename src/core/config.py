@@ -29,7 +29,7 @@ class Config:
         raise ValueError('Missing OPENAI_API_KEY in environment variables')
 
     # Database settings
-    DATABASE_PATH = os.getenv('DATABASE_PATH', 'tasks.db')
+    DATABASE_PATH = os.path.join(ROOT_DIR, os.getenv('DATABASE_PATH', 'data/tasks.db'))
 
     # Task settings
     MIN_TASK_LENGTH = int(os.getenv('MIN_TASK_LENGTH', '10'))

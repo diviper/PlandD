@@ -7,20 +7,34 @@ from aiogram.types import (
 )
 
 def get_main_keyboard() -> ReplyKeyboardMarkup:
-    """Create main menu keyboard"""
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📝 Добавить задачу")],
-            [KeyboardButton(text="📋 Список задач")],
-            [KeyboardButton(text="⏰ Настройки времени"), KeyboardButton(text="🍽 Приемы пищи")],
-            [KeyboardButton(text="📊 Анализ дня"), KeyboardButton(text="⚖️ Баланс жизни")]
-        ],
-        resize_keyboard=True
+    """Создает основную клавиатуру бота."""
+    keyboard = [
+        [KeyboardButton(text="📝 Новый план")],
+        [KeyboardButton(text="📋 Мои планы"), KeyboardButton(text="📊 Прогресс")],
+        [KeyboardButton(text="⚙️ Настройки"), KeyboardButton(text="❓ Помощь")]
+    ]
+    return ReplyKeyboardMarkup(
+        keyboard=keyboard,
+        resize_keyboard=True,
+        is_persistent=True
     )
+
+def get_plan_type_keyboard() -> InlineKeyboardMarkup:
+    """Создает клавиатуру для выбора типа плана"""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="🎯 Личная цель", callback_data="plan_personal"),
+            InlineKeyboardButton(text="💼 Рабочий проект", callback_data="plan_work")
+        ],
+        [
+            InlineKeyboardButton(text="📚 Обучение", callback_data="plan_study"),
+            InlineKeyboardButton(text="🏃 Спорт/Здоровье", callback_data="plan_health")
+        ]
+    ])
     return keyboard
 
 def get_priority_keyboard() -> InlineKeyboardMarkup:
-    """Create priority selection keyboard"""
+    """Создает клавиатуру для выбора приоритета"""
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="🔴 Высокий", callback_data="priority_high"),
@@ -30,26 +44,27 @@ def get_priority_keyboard() -> InlineKeyboardMarkup:
     ])
     return keyboard
 
-def get_meal_keyboard() -> InlineKeyboardMarkup:
-    """Create meal type selection keyboard"""
+def get_confirm_keyboard() -> InlineKeyboardMarkup:
+    """Создает клавиатуру для подтверждения"""
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="🍳 Завтрак", callback_data="meal_breakfast"),
-            InlineKeyboardButton(text="🥗 Обед", callback_data="meal_lunch")
-        ],
-        [
-            InlineKeyboardButton(text="🍽 Ужин", callback_data="meal_dinner"),
-            InlineKeyboardButton(text="🥪 Перекус", callback_data="meal_snack")
+            InlineKeyboardButton(text="✅ Подтвердить", callback_data="confirm_yes"),
+            InlineKeyboardButton(text="🔄 Изменить", callback_data="confirm_edit"),
+            InlineKeyboardButton(text="❌ Отменить", callback_data="confirm_cancel")
         ]
     ])
     return keyboard
 
-def get_confirm_keyboard() -> InlineKeyboardMarkup:
-    """Create confirmation keyboard"""
+def get_plan_actions_keyboard(plan_id: int) -> InlineKeyboardMarkup:
+    """Создает клавиатуру действий с планом"""
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="✅ Да", callback_data="confirm_yes"),
-            InlineKeyboardButton(text="❌ Нет", callback_data="confirm_no")
+            InlineKeyboardButton(text="✏️ Редактировать", callback_data=f"plan_edit_{plan_id}"),
+            InlineKeyboardButton(text="✅ Отметить прогресс", callback_data=f"plan_progress_{plan_id}")
+        ],
+        [
+            InlineKeyboardButton(text="📊 Статистика", callback_data=f"plan_stats_{plan_id}"),
+            InlineKeyboardButton(text="🗑 Удалить", callback_data=f"plan_delete_{plan_id}")
         ]
     ])
     return keyboard

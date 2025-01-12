@@ -65,10 +65,9 @@ docs/_build/
 docs/generated/
 
 # Internal documentation
-README.internal.md
 INTERNAL*.md
 *.internal.md
-
+README.internal.md
 # Backup files
 *.bak
 *~
