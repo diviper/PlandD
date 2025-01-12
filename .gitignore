@@ -66,4 +66,5 @@ site/
 *.swo
 .DS_Store
 Thumbs.db
+project_map.json
 README.internal.md
