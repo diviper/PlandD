@@ -1,42 +1,58 @@
-# PlanD - AI-Powered Task Planner Bot 🤖
+# PlanD - AI-Powered Planning Assistant
 
-[English](#english) | [Русский](#russian)
+Personal AI assistant for planning and task management, powered by OpenAI.
 
-<a name="english"></a>
-## Overview
-PlanD is a Telegram bot powered by AI that helps you manage and organize your tasks efficiently. It analyzes your tasks using OpenAI's GPT model, breaks them down into manageable subtasks, and sends smart reminders.
+## Version 0.4 Changes
+- Complete AI service refactoring
+  - Unified AI service for plan analysis and user patterns
+  - Improved OpenAI integration with retry mechanisms
+  - Better error handling and logging
+- Database structure optimization
+  - New models: Plan, PlanStep, PlanProgress, UserPreferences
+  - Improved relationships between entities
+  - Fixed circular dependencies
+- Code quality improvements
+  - Removed duplicate code
+  - Better project structure
+  - Enhanced testing coverage
 
-### Key Features
-- 🧠 Smart task analysis with AI
-- 📅 Automatic deadline detection
-- ⏰ Intelligent reminder system
-- 📊 Task prioritization
-- 🔔 Flexible notifications
+## Features
+- AI-powered plan analysis and structuring
+- User pattern learning and optimization
+- Progress tracking and analysis
+- Telegram bot interface
 
-### Quick Start
-1. Add [@not_water_bot](https://t.me/not_water_bot) in Telegram
-2. Send `/start` command
-3. Describe your task in natural language
-4. Get organized with AI-powered assistance
+## Installation
+1. Clone the repository
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+3. Create `.env` file with:
+```
+BOT_TOKEN=<your_telegram_bot_token>
+OPENAI_API_KEY=<your_openai_api_key>
+DATABASE_PATH=tasks.db
+LOG_LEVEL=DEBUG
+```
 
----
+## Usage
+Run the bot:
+```bash
+python src/bot/main.py
+```
 
-<a name="russian"></a>
-## Обзор
-PlanD - это Telegram бот с искусственным интеллектом, который помогает эффективно управлять и организовывать ваши задачи. Он анализирует задачи с помощью модели OpenAI GPT, разбивает их на выполнимые подзадачи и отправляет умные напоминания.
+## Development
+- Python 3.9+
+- SQLAlchemy for database
+- OpenAI API for AI features
+- Aiogram for Telegram bot
 
-### Основные возможности
-- 🧠 Умный анализ задач с помощью ИИ
-- 📅 Автоматическое определение сроков
-- ⏰ Интеллектуальная система напоминаний
-- 📊 Приоритизация задач
-- 🔔 Гибкие уведомления
-
-### Быстрый старт
-1. Добавьте [@not_water_bot](https://t.me/not_water_bot) в Telegram
-2. Отправьте команду `/start`
-3. Опишите вашу задачу на естественном языке
-4. Организуйте работу с помощью ИИ
+## Testing
+Run tests:
+```bash
+python test_openai.py
+```
 
 ## License
 MIT License

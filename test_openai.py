@@ -6,11 +6,28 @@ from asyncio import TimeoutError
 from src.services import AIService  # Обновленный импорт
 from src.core.config import setup_logging
 from src.database.database import Database
+from src.database.models import UserPreferences
 
 async def test_ai_service():
     setup_logging()
     db = Database()
     ai_service = AIService(db)
+    
+    # Создаем тестовые предпочтения пользователя
+    test_prefs = UserPreferences(
+        user_id=123,
+        preferred_work_hours="9:00-17:00",
+        peak_productivity_hours="10:00-12:00",
+        typical_energy_curve="High morning, low afternoon",
+        avg_task_completion_rate=0.75,
+        common_distractions="['Social media', 'Email']"
+    )
+    session = db.get_session()
+    try:
+        session.merge(test_prefs)
+        session.commit()
+    finally:
+        session.close()
     
     # Тестовый план
     test_plan = "Хочу выучить Python за 3 месяца. Нужно освоить основы программирования, ООП, работу с базами данных и веб-разработку."
@@ -19,54 +36,45 @@ async def test_ai_service():
     try:
         # Анализ плана
         print("\n1. Анализ плана...")
-        plan_result = await asyncio.wait_for(
-            ai_service.analyze_plan(test_plan, "study"),
-            timeout=15.0
-        )
-        
-        if plan_result:
+        plan_data = await ai_service.analyze_plan(test_plan, "study")
+        if plan_data:
             print("\nУспешный анализ плана:")
-            print(f"Название: {plan_result.get('title')}")
-            print(f"Длительность: {plan_result.get('estimated_duration')} дней")
-            print(f"Приоритет: {plan_result.get('priority')}")
-            print("\nШаги:")
-            for step in plan_result.get('steps', []):
-                print(f"- {step.get('title')} ({step.get('duration')} дней)")
+            print(f"Название: {plan_data['title']}")
+            print(f"Длительность: {plan_data['estimated_duration']}")
+            print(f"Приоритет: {plan_data['priority']}\n")
+            print("Шаги:")
+            for step in plan_data['steps']:
+                print(f"- {step['title']} ({step['duration']})")
             print("\nРекомендации:")
-            for rec in plan_result.get('recommendations', []):
+            for rec in plan_data['recommendations'][:2]:
                 print(f"- {rec}")
         else:
             print("Ошибка при анализе плана")
-            
-        # Тестируем анализ паттернов
+
+        # Анализ паттернов
         print("\n2. Анализ паттернов...")
-        patterns = await asyncio.wait_for(
-            ai_service.learn_patterns(123),  # тестовый user_id
-            timeout=10.0
-        )
-        
+        patterns = await ai_service.learn_patterns(123)
         if patterns:
-            print("\nПаттерны пользователя:")
-            peak_hours = patterns.get('productivity_patterns', {}).get('peak_hours', [])
-            print(f"Пиковые часы: {', '.join(peak_hours)}")
-            print(f"Оптимальная длительность: {patterns.get('productivity_patterns', {}).get('optimal_duration')}")
-            
+            print("\nУспешный анализ паттернов:")
+            print("Оптимальное время работы:", patterns['productivity_patterns']['peak_hours'])
             print("\nФакторы успеха:")
-            for factor in patterns.get('success_factors', []):
+            for factor in patterns['success_factors'][:2]:
                 print(f"- {factor}")
+            print("\nРекомендации:")
+            for rec in patterns['recommendations'][:2]:
+                print(f"- {rec}")
         else:
             print("Ошибка при анализе паттернов")
-            
+
     except TimeoutError:
-        print("Превышено время ожидания ответа от OpenAI")
-    except KeyboardInterrupt:
-        print("\nТест остановлен пользователем")
+        print("Ошибка: превышено время ожидания ответа от OpenAI")
     except Exception as e:
-        print(f"Произошла ошибка: {str(e)}")
-        logging.exception("Ошибка при тестировании AI сервиса")
+        print(f"Неожиданная ошибка: {str(e)}")
 
 if __name__ == "__main__":
     try:
         asyncio.run(test_ai_service())
     except KeyboardInterrupt:
-        print("\nПрограмма остановлена пользователем")
+        print("\nТест прерван пользователем")
+    except Exception as e:
+        print(f"Ошибка: {str(e)}")
