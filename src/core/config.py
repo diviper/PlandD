@@ -29,7 +29,15 @@ class Config:
         raise ValueError('Missing OPENAI_API_KEY in environment variables')
 
     # Database settings
-    DATABASE_PATH = os.path.join(ROOT_DIR, os.getenv('DATABASE_PATH', 'data/tasks.db'))
+    database_default = str(ROOT_DIR / 'data' / 'tasks.db')
+    DATABASE_PATH = os.path.abspath(os.getenv('DATABASE_PATH', database_default))
+
+    # Scheduler settings
+    PRIORITY_INTERVALS = {
+        'high': 5,     # Проверять каждые 5 минут
+        'medium': 15,  # Проверять каждые 15 минут
+        'low': 30      # Проверять каждые 30 минут
+    }
 
     # Task settings
     MIN_TASK_LENGTH = int(os.getenv('MIN_TASK_LENGTH', '10'))
@@ -50,51 +58,35 @@ class Config:
         "default_task_duration": 60,
         "min_energy_level": 1,
         "max_energy_level": 10,
-        "optimal_energy_threshold": 7,
-        "max_tokens": 1000,
-        "response_format": "json_object",
-        "min_task_duration": 10,
-        "max_parallel_tasks": 3,
-        "break_between_tasks": 5,
-        "max_daily_work_hours": 12,
-        "urgent_threshold_hours": 24,
-        "high_priority_coefficient": 1.5,
-        "medium_priority_coefficient": 1.0,
-        "low_priority_coefficient": 0.7,
-        "cache_ttl": int(os.getenv('CACHE_TTL', '3600')),
-        "max_cache_size": int(os.getenv('MAX_CACHE_SIZE', '1000')),
+        "default_energy_level": 5
     }
 
-    # Priority levels
-    PRIORITY_HIGH = "high"
-    PRIORITY_MEDIUM = "medium"
-    PRIORITY_LOW = "low"
-
-    # Priority check intervals (in minutes)
-    PRIORITY_INTERVALS = {
-        PRIORITY_HIGH: 30,    # Каждые 30 минут для высокого приоритета
-        PRIORITY_MEDIUM: 60,  # Каждый час для среднего приоритета
-        PRIORITY_LOW: 120     # Каждые 2 часа для низкого приоритета
+    # Reminder Settings
+    REMINDER_SETTINGS = {
+        "default_advance_notice": 15,
+        "min_advance_notice": 5,
+        "max_advance_notice": 60,
+        "check_interval": 60
     }
 
-    # Logging settings
+    # Cache Settings
+    MAX_CACHE_SIZE = int(os.getenv('MAX_CACHE_SIZE', '1000'))
+    CACHE_TTL = int(os.getenv('CACHE_TTL', '3600'))
+
+    # Logging Settings
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
-
-    # Time settings
-    QUIET_HOURS_START = os.getenv('QUIET_HOURS_START', '23:00')
-    QUIET_HOURS_END = os.getenv('QUIET_HOURS_END', '07:00')
+    LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    LOG_FILE = os.path.join(LOG_DIR, 'pland.log')
 
 def setup_logging(level: str = None):
     """Setup logging configuration"""
-    if level is None:
-        level = Config.LOG_LEVEL
-    
+    log_level = level or Config.LOG_LEVEL
     logging.basicConfig(
-        level=level,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        level=log_level,
+        format=Config.LOG_FORMAT,
         handlers=[
-            logging.StreamHandler(),
-            logging.FileHandler(LOG_DIR / 'bot.log')
+            logging.FileHandler(Config.LOG_FILE),
+            logging.StreamHandler()
         ]
     )
 

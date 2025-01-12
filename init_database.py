@@ -1,7 +1,7 @@
 """Initialize database script"""
-from src.database.db import init_db
+from src.database.database import Database
 
 if __name__ == "__main__":
     print("Initializing database...")
-    init_db()
+    db = Database()  # Это создаст базу данных и все таблицы
     print("Database initialized successfully!")

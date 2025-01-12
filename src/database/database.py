@@ -24,11 +24,18 @@ class Database:
         """Initialize database"""
         logger.info(f"Initializing database: {Config.DATABASE_PATH}")
         
+        database_dir = os.path.dirname(Config.DATABASE_PATH)
+        logger.info(f"Database directory: {database_dir}")
+        
         # Create database directory if it doesn't exist
-        os.makedirs(os.path.dirname(Config.DATABASE_PATH), exist_ok=True)
+        if database_dir:  # Проверяем, что путь не пустой
+            os.makedirs(database_dir, exist_ok=True)
         
         # Create engine and session factory
-        self.engine = create_engine(f'sqlite:///{Config.DATABASE_PATH}')
+        database_url = f'sqlite:///{Config.DATABASE_PATH}'
+        logger.info(f"Database URL: {database_url}")
+        
+        self.engine = create_engine(database_url)
         self.session_factory = sessionmaker(bind=self.engine)
         self._lock = asyncio.Lock()
         
@@ -159,3 +166,119 @@ class Database:
                 return plans
             finally:
                 session.close()
+
+    @staticmethod
+    def init_db():
+        """Initialize database and create all tables"""
+        logger.info("Initializing database...")
+        
+        # Создаем URL для SQLite
+        database_url = f"sqlite:///{Config.DATABASE_PATH}"
+        engine = create_engine(database_url)
+        Base.metadata.create_all(engine)
+        
+        Session = sessionmaker(bind=engine)
+        logger.info("Database initialized successfully")
+        return Session()
+
+    async def get_plan(self, plan_id: int) -> Optional[Plan]:
+        """Get plan by ID"""
+        try:
+            stmt = select(Plan).where(Plan.id == plan_id)
+            result = self.get_session().execute(stmt)
+            return result.scalars().first()
+        except Exception as e:
+            logger.error(f"Error getting plan {plan_id}: {str(e)}")
+            return None
+
+    async def get_user_plans(self, user_id: int) -> List[Plan]:
+        """Get all plans for user"""
+        try:
+            stmt = select(Plan).where(Plan.user_id == user_id)
+            result = self.get_session().execute(stmt)
+            return list(result.scalars().all())
+        except Exception as e:
+            logger.error(f"Error getting plans for user {user_id}: {str(e)}")
+            return []
+
+    async def create_plan(self, user_id: int, plan_data: Dict) -> Optional[Plan]:
+        """Create new plan"""
+        try:
+            plan = Plan(
+                user_id=user_id,
+                type=plan_data.get('type', 'personal'),
+                title=plan_data['title'],
+                description=plan_data.get('description', ''),
+                estimated_duration=plan_data.get('estimated_duration'),
+                priority=plan_data.get('priority', 'medium'),
+                created_at=datetime.utcnow()
+            )
+            self.get_session().add(plan)
+            self.get_session().commit()
+            return plan
+        except Exception as e:
+            logger.error(f"Error creating plan for user {user_id}: {str(e)}")
+            self.get_session().rollback()
+            return None
+
+    async def update_plan(self, plan_id: int, plan_data: Dict) -> bool:
+        """Update existing plan"""
+        try:
+            plan = await self.get_plan(plan_id)
+            if not plan:
+                return False
+            
+            for key, value in plan_data.items():
+                if hasattr(plan, key):
+                    setattr(plan, key, value)
+            
+            self.get_session().commit()
+            return True
+        except Exception as e:
+            logger.error(f"Error updating plan {plan_id}: {str(e)}")
+            self.get_session().rollback()
+            return False
+
+    async def delete_plan(self, plan_id: int) -> bool:
+        """Delete plan"""
+        try:
+            plan = await self.get_plan(plan_id)
+            if not plan:
+                return False
+            
+            self.get_session().delete(plan)
+            self.get_session().commit()
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting plan {plan_id}: {str(e)}")
+            self.get_session().rollback()
+            return False
+
+    async def get_user_preferences(self, user_id: int) -> Optional[UserPreferences]:
+        """Get user preferences"""
+        try:
+            stmt = select(UserPreferences).where(UserPreferences.user_id == user_id)
+            result = self.get_session().execute(stmt)
+            return result.scalars().first()
+        except Exception as e:
+            logger.error(f"Error getting preferences for user {user_id}: {str(e)}")
+            return None
+
+    async def update_user_preferences(self, user_id: int, preferences: Dict) -> bool:
+        """Update user preferences"""
+        try:
+            prefs = await self.get_user_preferences(user_id)
+            if not prefs:
+                prefs = UserPreferences(user_id=user_id)
+                self.get_session().add(prefs)
+            
+            for key, value in preferences.items():
+                if hasattr(prefs, key):
+                    setattr(prefs, key, value)
+            
+            self.get_session().commit()
+            return True
+        except Exception as e:
+            logger.error(f"Error updating preferences for user {user_id}: {str(e)}")
+            self.get_session().rollback()
+            return False

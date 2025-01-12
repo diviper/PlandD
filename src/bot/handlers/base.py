@@ -4,7 +4,6 @@ import traceback
 from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
-from aiogram.methods import SendMessage
 
 from src.core.config import Config
 
@@ -26,7 +25,7 @@ def get_main_keyboard():
     )
     return keyboard
 
-async def start_command(message: Message) -> SendMessage:
+async def start_command(message: Message) -> None:
     """
     Handle /start command
     """
@@ -43,15 +42,15 @@ async def start_command(message: Message) -> SendMessage:
             "Давай начнем планировать что-нибудь безумное! 🚀"
         )
         
-        return SendMessage(chat_id=message.chat.id, text=text, reply_markup=get_main_keyboard())
+        await message.answer(text=text, reply_markup=get_main_keyboard())
 
     except Exception as e:
         error_msg = f"Ошибка при обработке команды /start: {str(e)}"
         logger.error(error_msg)
         logger.debug(f"Traceback: {traceback.format_exc()}")
-        return SendMessage(chat_id=message.chat.id, text=error_msg)
+        await message.answer(text=error_msg)
 
-async def help_command(message: Message) -> SendMessage:
+async def help_command(message: Message) -> None:
     """
     Handle /help command
     """
@@ -64,75 +63,104 @@ async def help_command(message: Message) -> SendMessage:
             "Просто выбери команду, и погнали! 🚀"
         )
         
-        return SendMessage(chat_id=message.chat.id, text=text, reply_markup=get_main_keyboard())
+        await message.answer(text=text, reply_markup=get_main_keyboard())
 
     except Exception as e:
         error_msg = f"Ошибка при обработке команды /help: {str(e)}"
         logger.error(error_msg)
         logger.debug(f"Traceback: {traceback.format_exc()}")
-        return SendMessage(chat_id=message.chat.id, text=error_msg)
+        await message.answer(text=error_msg)
 
-async def settings_command(message: Message) -> SendMessage:
-    """Обработка команды /settings"""
+async def settings_command(message: Message) -> None:
+    """
+    Handle /settings command
+    """
     try:
-        settings_text = (
-            "⚙️ <b>Настройки:</b>\n\n"
-            "🕒 Предпочтительное время для задач\n"
-            "📊 Уровень детализации планов\n"
-            "🔔 Настройки уведомлений\n\n"
-            "🚧 Эта функция находится в разработке...\n\n"
-            "<i>Скоро вы сможете настроить:</i>\n"
-            "• Часы повышенной продуктивности\n"
-            "• Предпочтительную длительность задач\n"
-            "• Частоту напоминаний"
+        text = (
+            "⚙️ Настройки:\n\n"
+            "• Частота напоминаний\n"
+            "• Формат отображения планов\n"
+            "• Уведомления\n"
+            "• Часовой пояс\n\n"
+            "(Функционал в разработке)"
         )
-
-        return SendMessage(chat_id=message.chat.id, text=settings_text, reply_markup=get_main_keyboard(), parse_mode="HTML")
+        
+        await message.answer(text=text, reply_markup=get_main_keyboard())
 
     except Exception as e:
         error_msg = f"Ошибка при обработке команды /settings: {str(e)}"
         logger.error(error_msg)
         logger.debug(f"Traceback: {traceback.format_exc()}")
-        return SendMessage(chat_id=message.chat.id, text=error_msg)
+        await message.answer(text=error_msg)
 
-async def stats_command(message: Message) -> SendMessage:
-    """Обработка команды /stats"""
+async def stats_command(message: Message) -> None:
+    """
+    Handle /stats command
+    """
     try:
-        stats_text = (
-            "📊 <b>Статистика и прогресс</b>\n\n"
-            "🚧 Эта функция находится в разработке...\n\n"
-            "<i>Скоро здесь появится:</i>\n"
-            "• Количество выполненных задач\n"
-            "• Статистика по типам задач\n"
-            "• Анализ продуктивности\n"
-            "• Рекомендации по улучшению"
+        text = (
+            "📊 Статистика:\n\n"
+            "• Выполненные планы\n"
+            "• Текущие планы\n"
+            "• Эффективность\n"
+            "• Рекомендации\n\n"
+            "(Функционал в разработке)"
         )
-
-        return SendMessage(chat_id=message.chat.id, text=stats_text, reply_markup=get_main_keyboard(), parse_mode="HTML")
+        
+        await message.answer(text=text, reply_markup=get_main_keyboard())
 
     except Exception as e:
         error_msg = f"Ошибка при обработке команды /stats: {str(e)}"
         logger.error(error_msg)
         logger.debug(f"Traceback: {traceback.format_exc()}")
-        return SendMessage(chat_id=message.chat.id, text=error_msg)
+        await message.answer(text=error_msg)
 
-async def handle_text_message(message: Message) -> SendMessage:
+async def handle_text_message(message: Message):
     """
     Handle text messages
     """
     try:
-        if message.text == "📝 новый план":
+        if message.text == "📝 Новый план":
             text = (
                 "Отлично! Давай создадим новый план! *burp* 🥒\n\n"
                 "Просто напиши мне свой план, и я помогу тебе его оптимизировать!"
             )
-            return SendMessage(chat_id=message.chat.id, text=text, reply_markup=get_main_keyboard())
-        elif message.text == "❓ помощь":
-            return await help_command(message)
-        elif message.text == "⚙️ настройки":
-            return await settings_command(message)
-        elif message.text == "📊 прогресс":
-            return await stats_command(message)
+            await message.answer(text=text, reply_markup=get_main_keyboard())
+        elif message.text == "❓ Помощь":
+            await message.answer(
+                text=(
+                    "О, ты нуждаешься в моей помощи? *burp* 🥒\n\n"
+                    "Вот список команд:\n"
+                    "• /plan - создать новый план\n"
+                    "• /help - показать это сообщение\n\n"
+                    "Просто выбери команду, и погнали! 🚀"
+                ),
+                reply_markup=get_main_keyboard()
+            )
+        elif message.text == "⚙️ Настройки":
+            await message.answer(
+                text=(
+                    "⚙️ Настройки:\n\n"
+                    "• Частота напоминаний\n"
+                    "• Формат отображения планов\n"
+                    "• Уведомления\n"
+                    "• Часовой пояс\n\n"
+                    "(Функционал в разработке)"
+                ),
+                reply_markup=get_main_keyboard()
+            )
+        elif message.text == "📊 Прогресс":
+            await message.answer(
+                text=(
+                    "📊 Статистика:\n\n"
+                    "• Выполненные планы\n"
+                    "• Текущие планы\n"
+                    "• Эффективность\n"
+                    "• Рекомендации\n\n"
+                    "(Функционал в разработке)"
+                ),
+                reply_markup=get_main_keyboard()
+            )
         else:
             text = (
                 "Я не понимаю, что ты хочешь, Морти! *burp* 🥒\n\n"
@@ -140,24 +168,32 @@ async def handle_text_message(message: Message) -> SendMessage:
                 "• /plan - создать новый план\n"
                 "• /help - получить помощь"
             )
-            return SendMessage(chat_id=message.chat.id, text=text, reply_markup=get_main_keyboard())
+            await message.answer(text=text, reply_markup=get_main_keyboard())
 
     except Exception as e:
         error_msg = f"Ошибка при обработке текстового сообщения: {str(e)}"
         logger.error(error_msg)
         logger.debug(f"Traceback: {traceback.format_exc()}")
-        return SendMessage(chat_id=message.chat.id, text=error_msg)
+        await message.answer(text=error_msg)
 
 def register_base_handlers(dp: Router):
     """Регистрация базовых обработчиков"""
     # Команды
-    router.message.register(start_command, Command("start"))
-    router.message.register(help_command, Command("help"))
-    router.message.register(settings_command, Command("settings"))
-    router.message.register(stats_command, Command("stats"))
+    router.message(Command("start"))(start_command)
+    router.message(Command("help"))(help_command)
+    router.message(Command("settings"))(settings_command)
+    router.message(Command("stats"))(stats_command)
     
-    # Текстовые сообщения
-    router.message.register(handle_text_message, F.text)
+    # Текстовые сообщения для кнопок меню
+    router.message(
+        F.text.in_({
+            "📝 Новый план",
+            "📋 Мои планы",
+            "📊 Прогресс",
+            "⚙️ Настройки",
+            "❓ Помощь"
+        })
+    )(handle_text_message)
     
     # Подключаем роутер к диспетчеру, если он еще не подключен
     if router.parent_router is None:
