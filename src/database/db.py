@@ -1,13 +1,14 @@
-"""Database configuration module"""
+"""Database connection module"""
 import logging
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
-from pland.core.config import Config
+
+from src.core.config import Config
 
 logger = logging.getLogger(__name__)
 
-# Create engine
-engine = create_engine(f'sqlite:///{Config.DATABASE_PATH}')
+# Create database engine
+engine = create_engine(f"sqlite:///{Config.DATABASE_PATH}")
 
 # Create session factory
 Session = sessionmaker(bind=engine)

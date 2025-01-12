@@ -3,8 +3,8 @@ import logging
 from aiogram import Router, F
 from aiogram.types import Message
 
-from pland.database.database import Database
-from pland.services.ai import TaskAnalyzer
+from src.database.database import Database
+from src.services.ai import TaskAnalyzer
 
 logger = logging.getLogger(__name__)
 
