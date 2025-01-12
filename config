@@ -1,4 +1,0 @@
-Host github.com
-  IdentityFile ~/.ssh/nout_bot
-  User git
-  StrictHostKeyChecking no
