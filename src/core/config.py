@@ -28,6 +28,14 @@ class Config:
     if not OPENAI_API_KEY:
         raise ValueError('Missing OPENAI_API_KEY in environment variables')
 
+    OPENAI_MODEL = "gpt-4-1106-preview"
+    MAX_TOKENS = 800
+    TEMPERATURE = float(os.getenv('TASK_ANALYSIS_TEMPERATURE', '0.7'))
+
+    # Cache settings
+    CACHE_EXPIRY = 3600
+    MAX_CACHE_ENTRIES = int(os.getenv('MAX_CACHE_SIZE', '1000'))
+
     # Database settings
     database_default = str(ROOT_DIR / 'data' / 'tasks.db')
     DATABASE_PATH = os.path.abspath(os.getenv('DATABASE_PATH', database_default))
@@ -44,11 +52,6 @@ class Config:
     MAX_TASK_LENGTH = int(os.getenv('MAX_TASK_LENGTH', '1000'))
     DEFAULT_REMINDER_MINUTES = int(os.getenv('DEFAULT_REMINDER_MINUTES', '30'))
     MAX_REMINDERS_PER_TASK = int(os.getenv('MAX_REMINDERS_PER_TASK', '5'))
-
-    # OpenAI settings
-    OPENAI_MODEL = "gpt-3.5-turbo"
-    MAX_TOKENS = 1000
-    TEMPERATURE = float(os.getenv('TASK_ANALYSIS_TEMPERATURE', '0.7'))
 
     # Task Analysis Settings
     TASK_ANALYSIS_SETTINGS = {
@@ -69,14 +72,14 @@ class Config:
         "check_interval": 60
     }
 
-    # Cache Settings
-    MAX_CACHE_SIZE = int(os.getenv('MAX_CACHE_SIZE', '1000'))
-    CACHE_TTL = int(os.getenv('CACHE_TTL', '3600'))
-
     # Logging Settings
-    LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
+    LOG_LEVEL = logging.INFO
     LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     LOG_FILE = os.path.join(LOG_DIR, 'pland.log')
+
+    # Response timeouts (seconds)
+    API_TIMEOUT = 30
+    COMMAND_TIMEOUT = 60
 
 def setup_logging(level: str = None):
     """Setup logging configuration"""

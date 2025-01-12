@@ -3,16 +3,18 @@ import logging
 import asyncio
 
 from aiogram import Bot, Dispatcher, Router
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import ErrorEvent, Message
 from aiogram.client.default import DefaultBotProperties
 from aiogram.exceptions import TelegramAPIError
-from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import Message, ErrorEvent
 
-from src.bot.handlers import register_handlers
 from src.core.config import Config
 from src.database.database import Database
 from src.database.db import init_db
-from src.services.reminder import ReminderScheduler, Notifier
+from src.services.reminder.scheduler import ReminderScheduler
+from src.services.reminder.notifier import Notifier
+from src.bot.handlers import register_handlers
+from src.bot.middlewares import DatabaseMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +77,11 @@ async def run_bot():
             # Создаем основной роутер
             main_router = Router(name="main_router")
             dp.include_router(main_router)
+
+            # Добавляем middleware для базы данных
+            logger.info("Добавление middleware...")
+            dp.message.middleware(DatabaseMiddleware(db))
+            dp.callback_query.middleware(DatabaseMiddleware(db))
 
             # Инициализируем сервисы напоминаний
             logger.info("Инициализация сервисов напоминаний...")
