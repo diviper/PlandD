@@ -1,9 +1,10 @@
 """План-хендлер в стиле Рика и Морти"""
 import logging
 from datetime import datetime
-from aiogram import types
-from aiogram.dispatcher import FSMContext
-from aiogram.dispatcher.filters.state import State, StatesGroup
+from aiogram import types, Router, F
+from aiogram.filters import Command, StateFilter
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.context import FSMContext
 from src.database.database import Database
 from src.database.models import Plan, PlanStep
 from src.services.ai.ai_service import AIService
@@ -15,6 +16,9 @@ class PlanStates(StatesGroup):
     WAITING_FOR_PLAN = State()
     CONFIRMING_PLAN = State()
     EDITING_PLAN = State()
+
+# Создаем роутер для планов
+router = Router(name="plans")
 
 async def cmd_plan(message: types.Message, state: FSMContext):
     """Обработчик команды /plan"""
@@ -99,9 +103,17 @@ async def callback_edit_plan(callback_query: types.CallbackQuery, state: FSMCont
     await PlanStates.EDITING_PLAN.set()
     await state.update_data(plan_id=plan_id)
 
-def register_handlers(dp):
+def register_handlers(dp: Router):
     """Регистрация обработчиков"""
-    dp.register_message_handler(cmd_plan, commands=['plan'])
-    dp.register_message_handler(process_plan_input, state=PlanStates.WAITING_FOR_PLAN)
-    dp.register_callback_query_handler(callback_accept_plan, lambda c: c.data.startswith('accept_plan:'), state=PlanStates.CONFIRMING_PLAN)
-    dp.register_callback_query_handler(callback_edit_plan, lambda c: c.data.startswith('edit_plan:'), state=PlanStates.CONFIRMING_PLAN)
+    # Команды
+    dp.message.register(cmd_plan, Command("plan"))
+    
+    # Обработка состояний
+    dp.message.register(process_plan_input, StateFilter(PlanStates.WAITING_FOR_PLAN))
+    
+    # Колбэки
+    dp.callback_query.register(callback_accept_plan, F.data.startswith("accept_plan:"))
+    dp.callback_query.register(callback_edit_plan, F.data.startswith("edit_plan:"))
+    
+    # Подключаем роутер к диспетчеру
+    dp.include_router(router)

@@ -148,3 +148,14 @@ class Database:
                 return False
             finally:
                 session.close()
+
+    async def get_all_plans(self) -> List[Plan]:
+        """Get all plans from the database"""
+        async with self._lock:
+            session = self.get_session()
+            try:
+                plans = session.execute(select(Plan)).scalars().all()
+                logger.debug(f"Retrieved {len(plans)} plans")
+                return plans
+            finally:
+                session.close()

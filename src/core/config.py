@@ -65,6 +65,18 @@ class Config:
         "max_cache_size": int(os.getenv('MAX_CACHE_SIZE', '1000')),
     }
 
+    # Priority levels
+    PRIORITY_HIGH = "high"
+    PRIORITY_MEDIUM = "medium"
+    PRIORITY_LOW = "low"
+
+    # Priority check intervals (in minutes)
+    PRIORITY_INTERVALS = {
+        PRIORITY_HIGH: 30,    # Каждые 30 минут для высокого приоритета
+        PRIORITY_MEDIUM: 60,  # Каждый час для среднего приоритета
+        PRIORITY_LOW: 120     # Каждые 2 часа для низкого приоритета
+    }
+
     # Logging settings
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
 

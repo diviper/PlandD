@@ -9,6 +9,9 @@ from src.core.config import Config
 
 logger = logging.getLogger(__name__)
 
+# Создаем роутер для базовых обработчиков
+router = Router(name="base")
+
 def get_main_keyboard():
     """Создает основную клавиатуру"""
     keyboard = ReplyKeyboardMarkup(
@@ -151,9 +154,50 @@ async def stats_command(message: Message):
             "Пожалуйста, попробуйте позже."
         )
 
-def register_base_handlers(router: Router):
-    """Регистрация базовых обработчиков сообщений"""
+async def handle_text_message(message: Message):
+    """Обработка текстовых сообщений"""
+    try:
+        text = message.text.lower()
+        
+        if text == "📝 новый план":
+            # Перенаправляем на команду /plan
+            await message.answer(
+                "Воу-воу, *burp* какие планы на сегодня?\n"
+                "Давай, Морти, выкладывай свои дела, а я *burp* разложу их по полочкам!\n"
+                "Только без этой занудной ерунды, ок?",
+                parse_mode="Markdown"
+            )
+        elif text == "❓ помощь":
+            await help_command(message)
+        elif text == "⚙️ настройки":
+            await settings_command(message)
+        elif text == "📊 прогресс":
+            await stats_command(message)
+        else:
+            await message.answer(
+                "Эй, Морти, я не совсем *burp* понял, что ты хочешь.\n"
+                "Используй кнопки или команды, чтобы я мог тебе помочь!",
+                parse_mode="Markdown"
+            )
+            
+    except Exception as e:
+        logger.error(f"Ошибка при обработке текстового сообщения: {str(e)}")
+        logger.debug(f"Traceback: {traceback.format_exc()}")
+        await message.answer(
+            "😓 Произошла ошибка при обработке сообщения.\n"
+            "Пожалуйста, попробуйте позже."
+        )
+
+def register_base_handlers(dp: Router):
+    """Регистрация базовых обработчиков"""
+    # Команды
     router.message.register(start_command, Command("start"))
     router.message.register(help_command, Command("help"))
     router.message.register(settings_command, Command("settings"))
     router.message.register(stats_command, Command("stats"))
+    
+    # Текстовые сообщения
+    router.message.register(handle_text_message, F.text)
+    
+    # Подключаем роутер к диспетчеру
+    dp.include_router(router)
