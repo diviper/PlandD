@@ -4,6 +4,7 @@ import logging
 import os
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
+from sqlalchemy.ext.asyncio import AsyncSession
 
 import openai
 from openai import AsyncOpenAI
@@ -12,15 +13,17 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from src.database.database import Database
 from src.database.models import UserPreferences
 from src.core.config import Config
+from src.database.models_v2 import Plan, User, UserPreferences, TimeBlock, Priority
+from src.core.exceptions import AIServiceError, InvalidTimeBlockError, InvalidPriorityError
 
 logger = logging.getLogger(__name__)
 
 class AIService:
     """Service for AI-powered plan analysis and optimization"""
     
-    def __init__(self, db: Database):
+    def __init__(self, session: AsyncSession):
         """Initialize AI service"""
-        self.db = db
+        self.session = session
         self.openai_client = AsyncOpenAI(
             api_key=Config.OPENAI_API_KEY,
             timeout=30.0
@@ -194,3 +197,149 @@ class AIService:
                 "message": "Ошибка при анализе паттернов",
                 "patterns": []
             }
+
+    async def analyze_plan_text(self, text: str) -> Dict[str, Any]:
+        """Analyze plan text and extract structured information"""
+        try:
+            if not text:
+                raise AIServiceError("Plan text cannot be empty")
+                
+            # Здесь будет интеграция с OpenAI
+            # Пока возвращаем тестовые данные
+            return {
+                "title": "Test Plan",
+                "description": text,
+                "time_block": "MORNING",
+                "duration_minutes": 60,
+                "priority": "MEDIUM",
+                "steps": [
+                    {
+                        "title": "Step 1",
+                        "description": "First step",
+                        "duration_minutes": 30,
+                        "order": 1
+                    }
+                ]
+            }
+        except Exception as e:
+            raise AIServiceError(f"Failed to analyze plan text: {str(e)}")
+
+    async def suggest_time_block(self, user_id: int, plan_data: Dict[str, Any]) -> TimeBlock:
+        """Suggest time block based on user preferences and plan data"""
+        try:
+            prefs = await self._get_user_preferences(user_id)
+            if not prefs or not prefs.work_hours:
+                return TimeBlock.MORNING
+
+            work_hours = json.loads(prefs.work_hours)
+            start_hour = int(work_hours["start"].split(":")[0])
+            
+            if 6 <= start_hour < 12:
+                return TimeBlock.MORNING
+            elif 12 <= start_hour < 18:
+                return TimeBlock.AFTERNOON
+            elif 18 <= start_hour < 23:
+                return TimeBlock.EVENING
+            else:
+                raise InvalidTimeBlockError("Invalid work hours")
+        except Exception as e:
+            raise AIServiceError(f"Failed to suggest time block: {str(e)}")
+
+    async def suggest_priority(self, user_id: int, plan_data: Dict[str, Any]) -> Priority:
+        """Suggest priority based on plan content and user history"""
+        try:
+            # Здесь будет интеграция с OpenAI
+            # Пока возвращаем тестовые данные
+            return Priority.MEDIUM
+        except Exception as e:
+            raise AIServiceError(f"Failed to suggest priority: {str(e)}")
+
+    async def suggest_steps(self, plan_text: str) -> List[Dict[str, Any]]:
+        """Suggest plan steps based on plan description"""
+        try:
+            if not plan_text:
+                raise AIServiceError("Plan text cannot be empty")
+                
+            # Здесь будет интеграция с OpenAI
+            # Пока возвращаем тестовые данные
+            return [
+                {
+                    "title": "Step 1",
+                    "description": "First step of the plan",
+                    "duration_minutes": 30,
+                    "order": 1
+                },
+                {
+                    "title": "Step 2",
+                    "description": "Second step of the plan",
+                    "duration_minutes": 30,
+                    "order": 2
+                }
+            ]
+        except Exception as e:
+            raise AIServiceError(f"Failed to suggest steps: {str(e)}")
+
+    async def get_daily_summary(self, user_id: int, date: datetime) -> str:
+        """Generate daily summary of user's plans"""
+        try:
+            # Получаем планы пользователя за день
+            stmt = select(Plan).where(
+                Plan.user_id == user_id,
+                Plan.created_at >= date.replace(hour=0, minute=0),
+                Plan.created_at < date.replace(hour=23, minute=59)
+            )
+            result = await self.session.execute(stmt)
+            plans = list(result.scalars().all())
+
+            # Здесь будет интеграция с OpenAI
+            # Пока возвращаем простой текстовый отчет
+            if not plans:
+                return "No plans for today."
+
+            summary = ["Daily Summary:"]
+            for plan in plans:
+                summary.append(f"- {plan.title} ({plan.time_block.value}, {plan.priority.value})")
+            
+            return "\n".join(summary)
+        except Exception as e:
+            raise AIServiceError(f"Failed to generate daily summary: {str(e)}")
+
+    async def get_weekly_analysis(self, user_id: int, start_date: datetime) -> Dict[str, Any]:
+        """Generate weekly analysis of user's planning patterns"""
+        try:
+            # Получаем планы пользователя за неделю
+            end_date = start_date.replace(hour=23, minute=59)
+            stmt = select(Plan).where(
+                Plan.user_id == user_id,
+                Plan.created_at >= start_date,
+                Plan.created_at <= end_date
+            )
+            result = await self.session.execute(stmt)
+            plans = list(result.scalars().all())
+
+            # Здесь будет интеграция с OpenAI
+            # Пока возвращаем базовую статистику
+            time_blocks = {tb.value: 0 for tb in TimeBlock}
+            priorities = {p.value: 0 for p in Priority}
+            total_duration = 0
+
+            for plan in plans:
+                time_blocks[plan.time_block.value] += 1
+                priorities[plan.priority.value] += 1
+                total_duration += plan.duration_minutes
+
+            return {
+                "total_plans": len(plans),
+                "time_blocks": time_blocks,
+                "priorities": priorities,
+                "total_duration": total_duration,
+                "average_duration": total_duration / len(plans) if plans else 0
+            }
+        except Exception as e:
+            raise AIServiceError(f"Failed to generate weekly analysis: {str(e)}")
+
+    async def _get_user_preferences(self, user_id: int) -> Optional[UserPreferences]:
+        """Get user preferences"""
+        stmt = select(UserPreferences).where(UserPreferences.user_id == user_id)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()

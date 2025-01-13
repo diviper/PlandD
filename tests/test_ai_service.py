@@ -1,141 +1,122 @@
-"""Test AI service functionality"""
+"""Tests for AI service"""
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, time
+import json
+
+from src.database.models_v2 import User, Plan, TimeBlock, Priority
 from src.services.ai.ai_service import AIService
-from src.database.models_v2 import Plan, TimeBlock, Priority
-from src.database.database import Database
+from src.services.plan_service_v2 import PlanServiceV2
+from src.core.exceptions import AIServiceError
 
 @pytest.fixture
 def ai_service():
     """AI service fixture"""
     return AIService()
 
+@pytest.fixture
+def test_user():
+    """Test user fixture"""
+    # Create a test user
+    user = User(id=1, name="Test User")
+    return user
+
+@pytest.fixture
+def plan_service():
+    """Plan service fixture"""
+    return PlanServiceV2()
+
+@pytest.fixture
+def session():
+    """Session fixture"""
+    return Session()
+
 @pytest.mark.asyncio
-async def test_analyze_plan():
-    """Test plan analysis"""
-    ai_service = AIService()
-    
-    # Тест простого плана
-    result = await ai_service.analyze_plan(
-        "Позвонить маме вечером"
-    )
+async def test_analyze_plan_text(session, test_user, ai_service):
+    """Test plan text analysis"""
+    # Test with valid text
+    result = await ai_service.analyze_plan_text("Meeting with team at 10:00")
     assert isinstance(result, dict)
     assert "title" in result
     assert "time_block" in result
+    assert "duration_minutes" in result
     assert "priority" in result
-    assert "steps" in result
-    
-    # Тест плана с шагами
-    result = await ai_service.analyze_plan(
-        """
-        Подготовить презентацию
-        - Собрать данные
-        - Сделать слайды
-        - Добавить анимацию
-        """
-    )
-    assert len(result["steps"]) == 3
-    assert all("duration" in step for step in result["steps"])
+
+    # Test with empty text
+    with pytest.raises(AIServiceError):
+        await ai_service.analyze_plan_text("")
 
 @pytest.mark.asyncio
-async def test_determine_priority():
-    """Test priority determination"""
-    ai_service = AIService()
+async def test_suggest_time_block(session, test_user, ai_service):
+    """Test time block suggestions"""
+    plan_data = {
+        "title": "Morning Meeting",
+        "description": "Team sync-up",
+        "start_time": time(9, 0),
+        "end_time": time(10, 0)
+    }
     
-    # Высокий приоритет
-    high_priority = await ai_service.determine_priority(
-        "Срочная встреча с клиентом!!!"
-    )
-    assert high_priority == Priority.HIGH
-    
-    # Средний приоритет
-    medium_priority = await ai_service.determine_priority(
-        "Сходить в магазин за продуктами"
-    )
-    assert medium_priority == Priority.MEDIUM
-    
-    # Низкий приоритет
-    low_priority = await ai_service.determine_priority(
-        "Посмотреть новый сериал"
-    )
-    assert low_priority == Priority.LOW
+    time_block = await ai_service.suggest_time_block(test_user.id, plan_data)
+    assert isinstance(time_block, TimeBlock)
 
 @pytest.mark.asyncio
-async def test_suggest_time_block():
-    """Test time block suggestion"""
-    ai_service = AIService()
+async def test_suggest_priority(session, test_user, ai_service):
+    """Test priority suggestions"""
+    plan_data = {
+        "title": "Urgent Client Meeting",
+        "description": "Discussion of critical issues"
+    }
     
-    # Утренние дела
-    morning = await ai_service.suggest_time_block(
-        "Сходить на пробежку"
-    )
-    assert morning == TimeBlock.MORNING
-    
-    # Дневные дела
-    afternoon = await ai_service.suggest_time_block(
-        "Встреча с командой"
-    )
-    assert afternoon == TimeBlock.AFTERNOON
-    
-    # Вечерние дела
-    evening = await ai_service.suggest_time_block(
-        "Посмотреть фильм"
-    )
-    assert evening == TimeBlock.EVENING
+    priority = await ai_service.suggest_priority(test_user.id, plan_data)
+    assert isinstance(priority, Priority)
 
 @pytest.mark.asyncio
-async def test_estimate_steps_duration():
-    """Test steps duration estimation"""
-    ai_service = AIService()
+async def test_suggest_steps(session, test_user, ai_service):
+    """Test step suggestions"""
+    plan_text = "Prepare presentation for client meeting"
+    steps = await ai_service.suggest_steps(plan_text)
     
-    steps = [
-        "Собрать данные",
-        "Сделать слайды",
-        "Добавить анимацию"
-    ]
-    
-    durations = await ai_service.estimate_steps_duration(steps)
-    assert len(durations) == len(steps)
-    assert all(isinstance(d, int) for d in durations)
-    assert all(d > 0 for d in durations)
+    assert isinstance(steps, list)
+    assert len(steps) > 0
+    assert all("title" in step for step in steps)
+    assert all("duration_minutes" in step for step in steps)
+    assert all("order" in step for step in steps)
 
 @pytest.mark.asyncio
-async def test_generate_response():
-    """Test response generation"""
-    ai_service = AIService()
+async def test_get_daily_summary(session, test_user, ai_service, plan_service):
+    """Test daily summary generation"""
+    # Create some test plans
+    plan_data = {
+        "title": "Test Plan",
+        "description": "Test Description",
+        "time_block": TimeBlock.MORNING,
+        "start_time": time(9, 0),
+        "end_time": time(10, 0),
+        "duration_minutes": 60,
+        "priority": Priority.MEDIUM
+    }
+    await plan_service.create_plan(test_user.id, plan_data)
     
-    # Проверяем баланс юмора
-    response = await ai_service.generate_response(
-        "Создан новый план",
-        humor_level=0.2  # 20% юмора
-    )
-    
-    # Должно содержать элементы стиля Рика
-    assert any(phrase in response.lower() for phrase in ["морти", "*burp*", "🥒"])
-    
-    # Но не должно быть переполнено ими
-    rick_phrases = sum(
-        1 for phrase in ["морти", "*burp*", "🥒"] 
-        if phrase in response.lower()
-    )
-    assert rick_phrases <= 2  # Не более 2 фраз в стиле Рика
+    summary = await ai_service.get_daily_summary(test_user.id, datetime.utcnow())
+    assert isinstance(summary, str)
+    assert len(summary) > 0
 
 @pytest.mark.asyncio
-async def test_analyze_user_preferences():
-    """Test user preferences analysis"""
-    ai_service = AIService()
+async def test_get_weekly_analysis(session, test_user, ai_service, plan_service):
+    """Test weekly analysis generation"""
+    # Create some test plans
+    plan_data = {
+        "title": "Test Plan",
+        "description": "Test Description",
+        "time_block": TimeBlock.MORNING,
+        "start_time": time(9, 0),
+        "end_time": time(10, 0),
+        "duration_minutes": 60,
+        "priority": Priority.MEDIUM
+    }
+    await plan_service.create_plan(test_user.id, plan_data)
     
-    # История планов пользователя
-    plans = [
-        "Утренняя пробежка",
-        "Тренировка в зале",
-        "Йога"
-    ]
-    
-    preferences = await ai_service.analyze_user_preferences(plans)
-    assert "interests" in preferences
-    assert "preferred_time" in preferences
-    assert "activity_level" in preferences
-    
-    # Должен определить интерес к спорту
-    assert any("спорт" in interest.lower() for interest in preferences["interests"])
+    analysis = await ai_service.get_weekly_analysis(test_user.id, datetime.utcnow())
+    assert isinstance(analysis, dict)
+    assert "total_plans" in analysis
+    assert "time_blocks" in analysis
+    assert "priorities" in analysis

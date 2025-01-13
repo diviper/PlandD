@@ -1,134 +1,212 @@
-"""Service for handling plans with time structure"""
+"""Plan Service V2 with improved time management"""
 from datetime import datetime, time
 from typing import List, Optional, Dict, Any
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from src.database.models_v2 import Plan, PlanStep, PlanProgress, UserPreferences, TimeBlock, Priority
+from src.database.models_v2 import Plan, User, TimeBlock, Priority, PlanStep
+from src.core.exceptions import (
+    InvalidTimeFormatError,
+    TimeConflictError,
+    PlanNotFoundError,
+    InvalidPriorityError,
+    InvalidTimeBlockError,
+    EmptyPlanError,
+    PastTimeError,
+    InvalidUserError,
+    PlanTooLongError
+)
 
 class PlanServiceV2:
-    def __init__(self, db: Session):
-        self.db = db
-
-    def create_plan(self, user_id: int, data: Dict[str, Any]) -> Plan:
-        """Create a new plan with time structure"""
+    """Service for managing plans with improved time management"""
+    
+    def __init__(self, session: AsyncSession):
+        self.session = session
+    
+    async def get_plan(self, plan_id: int) -> Plan:
+        """Get plan by ID"""
+        stmt = select(Plan).where(Plan.id == plan_id).options(
+            selectinload(Plan.steps),
+            selectinload(Plan.progress)
+        )
+        result = await self.session.execute(stmt)
+        plan = result.scalar_one_or_none()
+        
+        if not plan:
+            raise PlanNotFoundError(f"Plan with ID {plan_id} not found")
+        
+        return plan
+    
+    async def get_user_plans(
+        self,
+        user_id: int,
+        time_block: Optional[str] = None,
+        priority: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None
+    ) -> List[Plan]:
+        """Get user plans with optional filters"""
+        stmt = select(Plan).where(Plan.user_id == user_id)
+        
+        if time_block:
+            stmt = stmt.where(Plan.time_block == TimeBlock(time_block))
+        if priority:
+            stmt = stmt.where(Plan.priority == Priority(priority))
+        if start_date:
+            stmt = stmt.where(Plan.created_at >= start_date)
+        if end_date:
+            stmt = stmt.where(Plan.created_at <= end_date)
+            
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+    
+    async def create_plan(self, user_id: int, plan_data: Dict[str, Any]) -> Plan:
+        """Create a new plan"""
+        # Проверяем пользователя
+        user_stmt = select(User).where(User.id == user_id)
+        user = await self.session.execute(user_stmt)
+        if not user.scalar_one_or_none():
+            raise InvalidUserError(f"User with ID {user_id} not found")
+        
+        # Валидация данных
+        if not plan_data.get("title"):
+            raise EmptyPlanError("Plan title cannot be empty")
+            
+        # Проверяем формат времени
+        start_time = await self.validate_time(plan_data["start_time"])
+        end_time = await self.validate_time(plan_data["end_time"])
+        
+        # Проверяем, что время не в прошлом
+        now = datetime.now().time()
+        if start_time < now:
+            raise PastTimeError("Cannot create plan with past time")
+        
+        # Проверяем конфликты
+        if await self.check_conflicts(user_id, start_time, end_time):
+            raise TimeConflictError("Time conflict with existing plan")
+        
+        # Создаем план
         plan = Plan(
             user_id=user_id,
-            title=data['title'],
-            description=data.get('description'),
-            time_block=TimeBlock[data['time_block'].upper()],
-            start_time=datetime.strptime(data['start_time'], '%H:%M').time(),
-            end_time=datetime.strptime(data['end_time'], '%H:%M').time(),
-            duration_minutes=data['duration_minutes'],
-            priority=Priority[data['priority'].upper()],
-            deadline=datetime.fromisoformat(data['deadline']) if data.get('deadline') else None
+            title=plan_data["title"],
+            description=plan_data.get("description", ""),
+            time_block=TimeBlock(plan_data["time_block"]),
+            start_time=start_time,
+            end_time=end_time,
+            duration_minutes=plan_data["duration_minutes"],
+            priority=Priority(plan_data["priority"])
         )
         
-        # Добавляем шаги плана
-        if 'steps' in data:
-            for step_data in data['steps']:
+        # Добавляем шаги, если есть
+        if "steps" in plan_data:
+            for step_data in plan_data["steps"]:
                 step = PlanStep(
-                    title=step_data['title'],
-                    description=step_data.get('description'),
-                    start_time=datetime.strptime(step_data['start_time'], '%H:%M').time() if step_data.get('start_time') else None,
-                    end_time=datetime.strptime(step_data['end_time'], '%H:%M').time() if step_data.get('end_time') else None,
-                    duration_minutes=step_data.get('duration_minutes'),
-                    priority=Priority[step_data['priority'].upper()] if step_data.get('priority') else None,
-                    metrics=step_data.get('metrics', {})
+                    title=step_data["title"],
+                    description=step_data.get("description", ""),
+                    order=step_data["order"],
+                    duration_minutes=step_data["duration_minutes"]
                 )
                 plan.steps.append(step)
         
-        self.db.add(plan)
-        self.db.commit()
-        self.db.refresh(plan)
-        return plan
-
-    def get_user_plans(self, user_id: int, time_block: Optional[str] = None, 
-                      priority: Optional[str] = None, status: Optional[str] = None) -> List[Plan]:
-        """Get user plans with optional filters"""
-        query = self.db.query(Plan).filter(Plan.user_id == user_id)
+        self.session.add(plan)
+        await self.session.commit()
+        await self.session.refresh(plan)
         
-        if time_block:
-            query = query.filter(Plan.time_block == TimeBlock[time_block.upper()])
-        if priority:
-            query = query.filter(Plan.priority == Priority[priority.upper()])
-        if status:
-            query = query.filter(Plan.status == status)
-            
-        return query.order_by(Plan.start_time).all()
-
-    def update_plan_status(self, plan_id: int, status: str) -> Plan:
-        """Update plan status"""
-        plan = self.db.query(Plan).filter(Plan.id == plan_id).first()
-        if not plan:
-            raise ValueError(f"Plan {plan_id} not found")
-            
-        plan.status = status
-        plan.updated_at = datetime.utcnow()
-        
-        self.db.commit()
-        self.db.refresh(plan)
         return plan
-
-    def add_plan_progress(self, plan_id: int, step_id: int, data: Dict[str, Any]) -> PlanProgress:
-        """Add progress update for a plan step"""
-        progress = PlanProgress(
-            plan_id=plan_id,
-            step_id=step_id,
-            status=data['status'],
-            started_at=datetime.fromisoformat(data['started_at']) if data.get('started_at') else None,
-            completed_at=datetime.fromisoformat(data['completed_at']) if data.get('completed_at') else None,
-            actual_duration_minutes=data.get('actual_duration_minutes'),
-            notes=data.get('notes'),
-            blockers=data.get('blockers', {})
+    
+    async def update_plan(self, plan_id: int, update_data: Dict[str, Any]) -> Plan:
+        """Update existing plan"""
+        plan = await self.get_plan(plan_id)
+        
+        for key, value in update_data.items():
+            if key == "time_block":
+                plan.time_block = TimeBlock(value)
+            elif key == "priority":
+                plan.priority = Priority(value)
+            elif key == "start_time":
+                plan.start_time = await self.validate_time(value)
+            elif key == "end_time":
+                plan.end_time = await self.validate_time(value)
+            elif hasattr(plan, key):
+                setattr(plan, key, value)
+        
+        await self.session.commit()
+        await self.session.refresh(plan)
+        
+        return plan
+    
+    async def delete_plan(self, plan_id: int) -> None:
+        """Delete plan"""
+        plan = await self.get_plan(plan_id)
+        await self.session.delete(plan)
+        await self.session.commit()
+    
+    async def validate_time(self, time_str: str) -> time:
+        """Validate time string and convert to time object"""
+        try:
+            return datetime.strptime(time_str, "%H:%M").time()
+        except ValueError:
+            raise InvalidTimeFormatError(f"Invalid time format: {time_str}. Use HH:MM format")
+    
+    async def get_time_block(self, time_str: str) -> TimeBlock:
+        """Get time block for given time"""
+        t = await self.validate_time(time_str)
+        hour = t.hour
+        
+        if 6 <= hour < 12:
+            return TimeBlock.MORNING
+        elif 12 <= hour < 18:
+            return TimeBlock.AFTERNOON
+        elif 18 <= hour < 23:
+            return TimeBlock.EVENING
+        else:
+            raise InvalidTimeBlockError(f"No time block available for {time_str}")
+    
+    async def estimate_duration(self, plan_data: Dict[str, Any]) -> int:
+        """Estimate plan duration in minutes"""
+        if "steps" in plan_data:
+            return sum(step["duration_minutes"] for step in plan_data["steps"])
+        else:
+            return 60  # Значение по умолчанию
+    
+    async def check_conflicts(self, user_id: int, start_time: time, end_time: time) -> bool:
+        """Check for time conflicts with existing plans"""
+        stmt = select(Plan).where(
+            Plan.user_id == user_id,
+            Plan.start_time <= end_time,
+            Plan.end_time >= start_time
         )
+        result = await self.session.execute(stmt)
+        return bool(result.first())
+    
+    async def update_plan_step(self, plan_id: int, step_id: int, update_data: Dict[str, Any]) -> Plan:
+        """Update plan step"""
+        plan = await self.get_plan(plan_id)
+        step = next((s for s in plan.steps if s.id == step_id), None)
         
-        self.db.add(progress)
-        self.db.commit()
-        self.db.refresh(progress)
-        return progress
-
-    def get_user_preferences(self, user_id: int) -> Optional[UserPreferences]:
-        """Get user preferences"""
-        return self.db.query(UserPreferences).filter(UserPreferences.user_id == user_id).first()
-
-    def update_user_preferences(self, user_id: int, data: Dict[str, Any]) -> UserPreferences:
-        """Update user preferences"""
-        prefs = self.db.query(UserPreferences).filter(UserPreferences.user_id == user_id).first()
+        if not step:
+            raise ValueError(f"Step {step_id} not found in plan {plan_id}")
         
-        if not prefs:
-            prefs = UserPreferences(user_id=user_id)
-            self.db.add(prefs)
+        for key, value in update_data.items():
+            if hasattr(step, key):
+                setattr(step, key, value)
         
-        # Обновляем только предоставленные поля
-        for key, value in data.items():
-            if hasattr(prefs, key):
-                if key == 'default_priority' and value:
-                    value = Priority[value.upper()]
-                setattr(prefs, key, value)
+        await self.session.commit()
+        await self.session.refresh(plan)
         
-        prefs.updated_at = datetime.utcnow()
-        self.db.commit()
-        self.db.refresh(prefs)
-        return prefs
-
-    def format_plan_for_display(self, plan: Plan) -> str:
-        """Format plan for display in Telegram message"""
-        result = [
-            f"⏰ {plan.start_time.strftime('%H:%M')}-{plan.end_time.strftime('%H:%M')} | {plan.title}",
-            f"📝 {plan.description}" if plan.description else "",
-            f"🎯 Приоритет: {plan.priority.value.capitalize()}",
-            f"⏱ Длительность: {plan.duration_minutes} минут",
-            f"📅 Дедлайн: {plan.deadline.strftime('%Y-%m-%d %H:%M')}" if plan.deadline else "",
-            "\nШаги:",
-        ]
+        return plan
+    
+    async def delete_plan_step(self, plan_id: int, step_id: int) -> Plan:
+        """Delete plan step"""
+        plan = await self.get_plan(plan_id)
+        step = next((s for s in plan.steps if s.id == step_id), None)
         
-        for step in plan.steps:
-            step_time = f"{step.start_time.strftime('%H:%M')}-{step.end_time.strftime('%H:%M')}" if step.start_time and step.end_time else "⏰ Время не указано"
-            result.extend([
-                f"\n{step_time}",
-                f"- {step.title}",
-                f"  {step.description}" if step.description else "",
-                f"  ⏱ {step.duration_minutes} минут" if step.duration_minutes else ""
-            ])
+        if not step:
+            raise ValueError(f"Step {step_id} not found in plan {plan_id}")
         
-        return "\n".join(line for line in result if line)
+        plan.steps.remove(step)
+        await self.session.commit()
+        await self.session.refresh(plan)
+        
+        return plan

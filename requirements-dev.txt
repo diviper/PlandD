@@ -1,5 +1,19 @@
-black>=24.10.0
-isort>=5.13.2
+# Форматирование и линтинг
+black==24.1.0
+isort==5.13.2
 ruff>=0.9.0
-pytest>=7.4.0
-pytest-asyncio>=0.21.1
+flake8==7.0.0
+mypy==1.8.0
+
+# Тестирование
+pytest==8.3.4
+pytest-asyncio==0.25.2
+pytest-cov==6.0.0
+pytest-mock==3.14.0
+aiosqlite==0.20.0
+
+# Типы
+types-aiofiles>=0.8.0
+types-python-dateutil>=2.8.0
+types-pytz>=2021.3.0
+types-requests>=2.31.0

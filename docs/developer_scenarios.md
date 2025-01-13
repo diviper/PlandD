@@ -692,3 +692,262 @@ async def generate_time_report(user_id: int) -> str:
 ⏱ Средняя длительность: {metrics.avg_duration} минут
 ✅ Процент выполнения: {metrics.completion_rate}%
     """.strip()
+
+```
+
+## 🚀 Начало работы
+
+### 1. Настройка окружения
+
+```bash
+# Клонирование репозитория
+git clone https://github.com/your-username/PlandD.git
+cd PlandD
+
+# Создание виртуального окружения
+python -m venv .venv
+source .venv/bin/activate  # для Linux/Mac
+.venv\Scripts\activate     # для Windows
+
+# Установка зависимостей
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+```
+
+### 2. Настройка переменных окружения
+
+```bash
+# Создание .env файла
+cp .env.example .env
+
+# Заполнение переменных
+BOT_TOKEN=your_telegram_bot_token
+OPENAI_API_KEY=your_openai_api_key
+DATABASE_PATH=sqlite:///tasks.db
+LOG_LEVEL=INFO
+```
+
+## 🧪 Разработка и тестирование
+
+### 1. Создание новой функциональности
+
+#### a. Создание ветки
+```bash
+git checkout -b feature/new-feature
+```
+
+#### b. Разработка
+```python
+# src/services/plan/plan_service_v2.py
+async def new_feature(self, param: str) -> Result:
+    """Реализация новой функции"""
+    # Код функции
+```
+
+#### c. Написание тестов
+```python
+# tests/test_plan_service.py
+@pytest.mark.asyncio
+async def test_new_feature(plan_service, test_user):
+    """Тест новой функции"""
+    result = await plan_service.new_feature("test")
+    assert result.status == "success"
+```
+
+### 2. Тестирование
+
+#### a. Запуск всех тестов
+```bash
+# Запуск всех тестов
+pytest tests/
+
+# С отчетом о покрытии
+pytest --cov=src tests/
+
+# Конкретный тест
+pytest tests/test_plan_service.py::test_new_feature
+```
+
+#### b. Асинхронное тестирование
+```python
+# tests/conftest.py
+@pytest.fixture
+async def async_session():
+    """Фикстура для асинхронной сессии"""
+    engine = create_async_engine(TEST_DATABASE_URL)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    
+    async_session = sessionmaker(
+        engine, class_=AsyncSession, expire_on_commit=False
+    )
+    
+    async with async_session() as session:
+        yield session
+        
+    await engine.dispose()
+
+# tests/test_service.py
+@pytest.mark.asyncio
+async def test_async_operation(async_session):
+    """Тест асинхронной операции"""
+    async with async_session.begin():
+        result = await some_async_operation()
+        assert result
+```
+
+#### c. Мокирование
+```python
+# tests/conftest.py
+@pytest.fixture
+def mock_openai(mocker):
+    """Мок для OpenAI API"""
+    return mocker.patch('src.services.ai.ai_service.openai')
+
+# tests/test_ai_service.py
+def test_ai_analysis(mock_openai, ai_service):
+    """Тест с моком OpenAI"""
+    mock_openai.ChatCompletion.create.return_value = {
+        "choices": [{"message": {"content": "test response"}}]
+    }
+    result = ai_service.analyze_text("test")
+    assert result.content == "test response"
+```
+
+### 3. Обработка ошибок
+
+#### a. Добавление обработчиков
+```python
+# src/services/plan/plan_service_v2.py
+async def create_plan(self, user_id: int, data: dict) -> Plan:
+    """Создание плана с обработкой ошибок"""
+    try:
+        # Валидация данных
+        if not self.validate_data(data):
+            raise ValidationError("Некорректные данные")
+            
+        # Проверка конфликтов
+        conflicts = await self.check_conflicts(
+            user_id, data["start_time"], data["duration"]
+        )
+        if conflicts:
+            raise TimeConflictError("Найдены конфликты времени")
+            
+        # Создание плана
+        return await self._create_plan(user_id, data)
+        
+    except Exception as e:
+        logger.error(f"Ошибка при создании плана: {e}")
+        raise
+```
+
+#### b. Тестирование ошибок
+```python
+# tests/test_error_handling.py
+@pytest.mark.asyncio
+async def test_validation_error(plan_service):
+    """Тест обработки ошибки валидации"""
+    with pytest.raises(ValidationError):
+        await plan_service.create_plan(1, {"invalid": "data"})
+
+@pytest.mark.asyncio
+async def test_time_conflict(plan_service, test_user):
+    """Тест обработки конфликта времени"""
+    # Создаем первый план
+    plan1 = await plan_service.create_plan(test_user.id, {
+        "start_time": "10:00",
+        "duration": 60
+    })
+    
+    # Пробуем создать конфликтующий план
+    with pytest.raises(TimeConflictError):
+        await plan_service.create_plan(test_user.id, {
+            "start_time": "10:30",
+            "duration": 60
+        })
+```
+
+## 📝 Документация
+
+### 1. Документирование кода
+```python
+def function_name(param: type) -> return_type:
+    """
+    Краткое описание функции.
+    
+    Args:
+        param (type): описание параметра
+        
+    Returns:
+        return_type: описание возвращаемого значения
+        
+    Raises:
+        ErrorType: описание возможной ошибки
+    """
+```
+
+### 2. Обновление документации
+```markdown
+# Новая функциональность
+
+## Описание
+Краткое описание новой функции
+
+## Использование
+```python
+result = await service.new_function(param)
+```
+
+## Параметры
+- param (str): описание параметра
+
+## Возвращаемое значение
+- Result: описание результата
+```
+
+## 🔄 Процесс разработки
+
+### 1. Создание новой функциональности
+1. Создать ветку
+2. Написать тесты
+3. Реализовать функционал
+4. Обновить документацию
+5. Создать PR
+
+### 2. Обновление существующего кода
+1. Написать тесты для новой логики
+2. Внести изменения
+3. Проверить обратную совместимость
+4. Обновить документацию
+
+### 3. Исправление ошибок
+1. Воспроизвести ошибку в тесте
+2. Исправить код
+3. Убедиться, что тест проходит
+4. Добавить регрессионный тест
+
+## 🎯 Лучшие практики
+
+### 1. Код
+- Использовать type hints
+- Добавлять docstrings
+- Следовать PEP 8
+- Использовать асинхронное программирование где возможно
+
+### 2. Тесты
+- Писать тесты до кода (TDD)
+- Использовать фикстуры
+- Мокировать внешние зависимости
+- Проверять граничные случаи
+
+### 3. Git
+- Делать атомарные коммиты
+- Писать понятные сообщения
+- Регулярно обновлять ветку
+- Проверять код перед коммитом
+
+### 4. Документация
+- Поддерживать актуальность
+- Добавлять примеры
+- Документировать изменения
+- Обновлять README
