@@ -178,14 +178,18 @@ async def handle_text_message(message: Message):
 
 def register_base_handlers(dp: Router):
     """Регистрация базовых обработчиков"""
+    # Создаем роутер для базовых обработчиков
+    base_router = Router(name="base_router")
+    
     # Команды
-    router.message(Command("start"))(start_command)
-    router.message(Command("help"))(help_command)
-    router.message(Command("settings"))(settings_command)
-    router.message(Command("stats"))(stats_command)
+    base_router.message.register(start_command, Command("start"))
+    base_router.message.register(help_command, Command("help"))
+    base_router.message.register(settings_command, Command("settings"))
+    base_router.message.register(stats_command, Command("stats"))
     
     # Текстовые сообщения для кнопок меню
-    router.message(
+    base_router.message.register(
+        handle_text_message,
         F.text.in_({
             "📝 Новый план",
             "📋 Мои планы",
@@ -193,8 +197,7 @@ def register_base_handlers(dp: Router):
             "⚙️ Настройки",
             "❓ Помощь"
         })
-    )(handle_text_message)
+    )
     
-    # Подключаем роутер к диспетчеру, если он еще не подключен
-    if router.parent_router is None:
-        dp.include_router(router)
+    # Подключаем роутер к основному роутеру
+    dp.include_router(base_router)

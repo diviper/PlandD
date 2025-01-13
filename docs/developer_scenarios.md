@@ -345,3 +345,350 @@ async def check_system_health():
    - Проверяйте входные данные
    - Используйте параметризованные запросы
    - Защищайте чувствительные данные
+
+# PlanD Bot - Технический контекст
+
+## Ключевые компоненты
+
+### 1. AI Стиль (v0.6.1)
+```python
+# Текущая проблема: слишком много юмора, мало структуры
+current_response = """
+О, burp Морти, посмотри на этого парня...
+[много юмора, мало конкретики]
+"""
+
+# Требуемый формат:
+required_format = """
+⏰ 09:00-10:30 | Подготовка
+- Конкретное действие
+- Конкретное действие
+Приоритет: Высокий
+"""
+```
+
+### 2. Структура планов
+```python
+class TimeStructuredPlan:
+    def __init__(self):
+        self.time_blocks = {
+            'morning': [],    # 06:00-12:00
+            'afternoon': [],  # 12:00-18:00
+            'evening': []     # 18:00-23:00
+        }
+        self.deadlines = {}
+        self.priorities = []
+```
+
+### 3. Критические проблемы
+- ❌ Команда /plans не работает
+- ❌ Нет временной структуры в планах
+- ❌ Избыток юмора в ответах AI
+
+### 4. База данных
+```sql
+-- Текущая структура
+CREATE TABLE plans (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER,
+    content TEXT,
+    created_at TIMESTAMP
+);
+
+-- Требуемые изменения
+ALTER TABLE plans ADD COLUMN time_block TEXT;
+ALTER TABLE plans ADD COLUMN priority TEXT;
+ALTER TABLE plans ADD COLUMN deadline TIMESTAMP;
+```
+
+### 5. Промпты
+```python
+# Текущий промпт (проблемный)
+CURRENT_PROMPT = """
+Ты Рик из "Рика и Морти". Создай план...
+[слишком общий]
+"""
+
+# Новый промпт (в разработке)
+NEW_PROMPT = """
+Ты Рик. Создай план со следующей структурой:
+1. Временные блоки (утро/день/вечер)
+2. Конкретные действия
+3. Приоритеты
+4. Дедлайны
+Ограничь юмор 20% от ответа.
+"""
+```
+
+## Текущие задачи
+
+### 1. Исправление команды /plans
+```python
+@dp.message_handler(commands=['plans'])
+async def cmd_plans(message: types.Message):
+    # TODO:
+    # 1. Добавить сортировку по времени
+    # 2. Внедрить фильтры
+    # 3. Исправить отображение
+    pass
+```
+
+### 2. Структура временных блоков
+```python
+# Требуемый формат вывода
+TIME_BLOCK_FORMAT = """
+⏰ [Время] | [Название блока]
+- [Действие 1]
+- [Действие 2]
+Приоритет: [Уровень]
+Длительность: [Время]
+"""
+```
+
+### 3. Метрики качества
+```python
+class QualityMetrics:
+    def __init__(self):
+        self.time_structure_rate = 0  # Целевое значение: 95%
+        self.humor_ratio = 0          # Целевое значение: 20%
+        self.plans_success_rate = 0   # Целевое значение: 98%
+```
+
+## Важные заметки
+
+1. **Не коммитить:**
+   - Файлы в директории docs/
+   - Конфиденциальные данные
+   - Временные файлы
+
+2. **Версионность:**
+   - Текущая версия: 0.6.1
+   - Фокус на временной структуре
+   - Баланс юмор/полезность
+
+3. **API токены:**
+   ```bash
+   # Хранить в .env
+   BOT_TOKEN=your_token
+   OPENAI_API_KEY=your_key
+   ```
+
+## Быстрые команды
+
+```bash
+# Запуск бота
+python -m src.bot
+
+# Тесты
+pytest tests/
+
+# Миграции БД
+python -m src.database.migrations
+
+```
+
+## 1. Работа с временной структурой
+
+### 1.1 Создание плана с временными блоками
+
+```python
+# 1. Использование PlanServiceV2
+from src.services.plan_service_v2 import PlanServiceV2
+from src.database.models_v2 import TimeBlock, Priority
+
+async def create_time_structured_plan(db: Session, user_id: int, data: dict):
+    plan_service = PlanServiceV2(db)
+    
+    # Создание плана
+    plan_data = {
+        'title': 'Подготовка презентации',
+        'time_block': TimeBlock.MORNING,
+        'start_time': '09:00',
+        'duration_minutes': 120,
+        'priority': Priority.HIGH,
+        'steps': [
+            {
+                'title': 'Сбор данных',
+                'duration_minutes': 45,
+                'priority': Priority.HIGH
+            }
+        ]
+    }
+    
+    plan = plan_service.create_plan(user_id, plan_data)
+    return plan
+```
+
+### 1.2 Обработка временных блоков
+
+```python
+# 2. Валидация времени в обработчике
+@dp.message_handler(state=PlanStatesV2.WAITING_FOR_TIME)
+async def process_time_input(message: types.Message, state: FSMContext):
+    try:
+        # Проверка формата времени
+        start_time = datetime.strptime(message.text, '%H:%M').time()
+        
+        # Определение временного блока
+        time_block = get_time_block(start_time)
+        
+        # Проверка доступности
+        if not is_time_available(user_id, start_time):
+            await message.answer("Это время уже занято!")
+            return
+            
+        # Сохранение времени
+        await state.update_data(start_time=start_time)
+        
+    except ValueError:
+        await message.answer("Неверный формат времени! Используйте ЧЧ:ММ")
+```
+
+## 2. Интеграция с AI
+
+### 2.1 Анализ плана через AIServiceV2
+
+```python
+# Использование улучшенного AI сервиса
+from src.services.ai.ai_service_v2 import AIServiceV2
+
+async def analyze_plan_with_time(plan_text: str, preferences: dict):
+    ai_service = AIServiceV2()
+    
+    # Анализ плана с учетом времени
+    plan_data = await ai_service.analyze_plan_v2(
+        plan_text=plan_text,
+        user_preferences=preferences
+    )
+    
+    return plan_data
+```
+
+### 2.2 Форматирование ответов
+
+```python
+def format_plan_response(plan: Dict[str, Any]) -> str:
+    """Форматирование плана для отображения"""
+    return f"""
+⏰ {plan['start_time']}-{plan['end_time']} | {plan['title']}
+📝 {plan['description']}
+🎯 Приоритет: {plan['priority'].value.capitalize()}
+⏱ Длительность: {plan['duration_minutes']} минут
+
+Шаги:
+{''.join(f"- {step['title']} ({step['duration_minutes']} мин)\n" for step in plan['steps'])}
+    """.strip()
+```
+
+## 3. Тестирование
+
+### 3.1 Тесты временной структуры
+
+```python
+# test_time_structure.py
+import pytest
+from datetime import time
+from src.database.models_v2 import TimeBlock
+
+def test_time_block_detection():
+    assert get_time_block(time(9, 0)) == TimeBlock.MORNING
+    assert get_time_block(time(14, 0)) == TimeBlock.AFTERNOON
+    assert get_time_block(time(19, 0)) == TimeBlock.EVENING
+
+def test_duration_validation():
+    with pytest.raises(ValueError):
+        validate_duration(-30)
+    with pytest.raises(ValueError):
+        validate_duration(300)  # > 4 часа
+```
+
+### 3.2 Интеграционные тесты
+
+```python
+# test_integration.py
+async def test_plan_creation_flow():
+    # Создание плана
+    plan_data = {
+        'title': 'Test Plan',
+        'time_block': 'morning',
+        'start_time': '09:00',
+        'duration_minutes': 60
+    }
+    
+    # Проверка создания
+    plan = await create_plan(plan_data)
+    assert plan.time_block == TimeBlock.MORNING
+    assert plan.duration_minutes == 60
+    
+    # Проверка конфликтов
+    conflict = await check_time_conflicts(plan)
+    assert not conflict
+```
+
+## 4. Миграция данных
+
+### 4.1 Выполнение миграции
+
+```bash
+# Применение миграции
+python -m alembic upgrade head
+
+# Откат при необходимости
+python -m alembic downgrade -1
+```
+
+### 4.2 Перенос данных
+
+```python
+# migrate_plans.py
+async def migrate_plans():
+    """Миграция старых планов в новый формат"""
+    old_plans = await get_old_plans()
+    
+    for plan in old_plans:
+        # Конвертация в новый формат
+        new_plan = convert_to_new_format(plan)
+        
+        # Сохранение
+        await save_new_plan(new_plan)
+```
+
+## 5. Мониторинг
+
+### 5.1 Метрики времени
+
+```python
+class TimeMetrics:
+    def __init__(self):
+        self.time_block_usage = {
+            'morning': 0,
+            'afternoon': 0,
+            'evening': 0
+        }
+        self.avg_duration = 0
+        self.completion_rate = 0
+    
+    def track_plan(self, plan):
+        """Отслеживание метрик плана"""
+        self.time_block_usage[plan.time_block.value] += 1
+        self.avg_duration = calculate_average_duration()
+        self.completion_rate = calculate_completion_rate()
+```
+
+### 5.2 Отчеты
+
+```python
+async def generate_time_report(user_id: int) -> str:
+    """Генерация отчета по временным метрикам"""
+    metrics = await get_user_metrics(user_id)
+    
+    return f"""
+📊 Отчет по использованию времени:
+
+Утро: {metrics.time_block_usage['morning']} планов
+День: {metrics.time_block_usage['afternoon']} планов
+Вечер: {metrics.time_block_usage['evening']} планов
+
+⏱ Средняя длительность: {metrics.avg_duration} минут
+✅ Процент выполнения: {metrics.completion_rate}%
+    """.strip()

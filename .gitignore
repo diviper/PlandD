@@ -21,10 +21,11 @@ wheels/
 *.egg
 
 # Virtual Environment
+.env
+.venv
+env/
 venv/
 ENV/
-env/
-.env
 
 # IDE
 .idea/
@@ -32,31 +33,37 @@ env/
 *.swp
 *.swo
 
-# Logs
-*.log
-logs/
-log/
-
 # Database
 *.db
 *.sqlite3
+*.sqlite
 
-# Documentation
-docs/
-*.md
-!README.md
+# Logs
+*.log
+logs/
 
-# Tests
+# Testing
 .coverage
 htmlcov/
 .pytest_cache/
+.mypy_cache/
 
-# Temporary files
-*.tmp
-*.bak
-*.swp
-*~
-
-# OS
+# Project specific
+config.local.yaml
+*.local.yaml
+temp/
+uploads/
 .DS_Store
-Thumbs.db
+docs
+# Documentation
+docs/_build/
+site/
+
+# Alembic
+alembic/*.ini
+!alembic/alembic.ini
+
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock

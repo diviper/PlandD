@@ -74,10 +74,6 @@ async def run_bot():
             storage = MemoryStorage()
             dp = Dispatcher(storage=storage)
 
-            # Создаем основной роутер
-            main_router = Router(name="main_router")
-            dp.include_router(main_router)
-
             # Добавляем middleware для базы данных
             logger.info("Добавление middleware...")
             dp.message.middleware(DatabaseMiddleware(db))

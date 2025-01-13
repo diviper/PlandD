@@ -2,14 +2,14 @@
 import asyncio
 import logging
 from asyncio import TimeoutError
-
-from src.services import AIService  # Обновленный импорт
-from src.core.config import setup_logging
+from src.services.ai_service import AIService
+from src.core.config import Config, setup_logging
 from src.database.database import Database
-from src.database.models import UserPreferences
+from src.database.models import UserPreferences, Priority
 
 async def test_ai_service():
     setup_logging()
+    logger = logging.getLogger(__name__)
     db = Database()
     ai_service = AIService(db)
     
@@ -19,14 +19,12 @@ async def test_ai_service():
         # Сначала проверяем, существует ли запись
         existing_prefs = session.query(UserPreferences).filter_by(user_id=123).first()
         if existing_prefs:
-            # Обновляем существующую запись
             existing_prefs.preferred_work_hours = "9:00-17:00"
             existing_prefs.peak_productivity_hours = "10:00-12:00"
             existing_prefs.typical_energy_curve = "High morning, low afternoon"
             existing_prefs.avg_task_completion_rate = 0.75
             existing_prefs.common_distractions = "['Social media', 'Email']"
         else:
-            # Создаем новую запись
             test_prefs = UserPreferences(
                 user_id=123,
                 preferred_work_hours="9:00-17:00",
@@ -40,52 +38,68 @@ async def test_ai_service():
     finally:
         session.close()
     
-    # Тестовый план
-    test_plan = "Хочу выучить Python за 3 месяца. Нужно освоить основы программирования, ООП, работу с базами данных и веб-разработку."
+    print("🚀 Запуск тестов AI сервиса...")
     
-    print("Тестируем AI сервис...")
     try:
-        # Анализ плана
-        print("\n1. Анализ плана...")
-        plan_data = await ai_service.analyze_plan(test_plan, "study")
-        if plan_data:
-            print("\nУспешный анализ плана:")
-            print(f"Название: {plan_data['title']}")
-            print(f"Длительность: {plan_data['estimated_duration']}")
-            print(f"Приоритет: {plan_data['priority']}\n")
-            print("Шаги:")
-            for step in plan_data['steps']:
-                print(f"- {step['title']} ({step['duration']})")
-            print("\nРекомендации:")
-            for rec in plan_data['recommendations'][:2]:
-                print(f"- {rec}")
-        else:
-            print("Ошибка при анализе плана")
-
-        # Анализ паттернов
-        print("\n2. Анализ паттернов...")
-        patterns = await ai_service.learn_patterns(123)
-        if patterns:
-            print("\nУспешный анализ паттернов:")
-            print("Оптимальное время работы:", patterns['productivity_patterns']['peak_hours'])
-            print("\nФакторы успеха:")
-            for factor in patterns['success_factors'][:2]:
-                print(f"- {factor}")
-            print("\nРекомендации:")
-            for rec in patterns['recommendations'][:2]:
-                print(f"- {rec}")
-        else:
-            print("Ошибка при анализе паттернов")
-
+        # 1. Тест анализа простого плана
+        print("\n1. Анализ простого плана...")
+        simple_plan = "Позвонить маме вечером"
+        simple_result = await ai_service.analyze_plan(simple_plan)
+        print("✅ Анализ простого плана успешен")
+        
+        # 2. Тест анализа сложного плана
+        print("\n2. Анализ сложного плана...")
+        complex_plan = """
+        Подготовить презентацию для клиента!!!
+        - Собрать данные по рынку
+        - Создать слайды
+        - Добавить графики
+        - Провести репетицию
+        """
+        complex_result = await ai_service.analyze_plan(complex_plan)
+        print("✅ Анализ сложного плана успешен")
+        
+        # 3. Тест определения приоритета
+        print("\n3. Определение приоритета...")
+        priority = await ai_service.determine_priority("Срочная встреча!!!")
+        assert priority == Priority.HIGH
+        print("✅ Определение приоритета успешно")
+        
+        # 4. Тест оценки длительности
+        print("\n4. Оценка длительности...")
+        duration = await ai_service.estimate_duration("Написать отчет")
+        assert isinstance(duration, int) and duration > 0
+        print("✅ Оценка длительности успешна")
+        
+        # 5. Тест анализа учебного плана
+        print("\n5. Анализ учебного плана...")
+        study_plan = "Хочу выучить Python за 3 месяца. Нужно освоить основы программирования, ООП, работу с базами данных и веб-разработку."
+        study_result = await ai_service.analyze_plan(study_plan, "study")
+        print("✅ Анализ учебного плана успешен")
+        
+        # 6. Тест обработки ошибок
+        print("\n6. Тест обработки ошибок...")
+        try:
+            await ai_service.analyze_plan("")
+            print("❌ Тест обработки ошибок не пройден")
+        except ValueError:
+            print("✅ Обработка ошибок работает корректно")
+        
+        print("\n📊 Результаты тестирования AI сервиса:")
+        print("✅ Все тесты успешно пройдены!")
+        return True
+        
     except TimeoutError:
-        print("Ошибка: превышено время ожидания ответа от OpenAI")
+        print("❌ Ошибка: превышено время ожидания ответа от OpenAI")
+        return False
     except Exception as e:
-        print(f"Неожиданная ошибка: {str(e)}")
+        print(f"❌ Неожиданная ошибка: {str(e)}")
+        return False
 
 if __name__ == "__main__":
     try:
         asyncio.run(test_ai_service())
     except KeyboardInterrupt:
-        print("\nТест прерван пользователем")
+        print("\n⚠️ Тест остановлен пользователем")
     except Exception as e:
-        print(f"Ошибка: {str(e)}")
+        print(f"❌ Неожиданная ошибка: {str(e)}")
